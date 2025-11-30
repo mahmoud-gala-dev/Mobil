@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>إنشاء أيقونات الاختبار</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .icon-container {
+            margin: 20px;
+            display: inline-block;
+        }
+        canvas {
+            border: 2px solid #ddd;
+            margin: 10px;
+            background: white;
+        }
+        button {
+            background: #16A34A;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 18px;
+            cursor: pointer;
+            border-radius: 5px;
+            margin: 10px;
+        }
+        button:hover {
+            background: #059669;
+        }
+        h1 {
+            color: #16A34A;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎨 مولد أيقونات Engeb للاختبار</h1>
+    <p>اضغط على الأزرار لإنشاء وتحميل الأيقونات</p>
+    
+    <div class="icon-container">
+        <h3>📱 app_icon.png</h3>
+        <p style="color: #666;">الأيقونة الأساسية مع خلفية</p>
+        <canvas id="icon1" width="1024" height="1024"></canvas>
+        <br>
+        <button onclick="downloadIcon('icon1', 'app_icon.png')">⬇️ تحميل app_icon.png</button>
+        <p style="font-size: 12px; color: #888;">1024x1024 • PNG</p>
+    </div>
+    
+    <div class="icon-container">
+        <h3>🎨 app_icon_foreground.png</h3>
+        <p style="color: #666;">النسخة الشفافة للـ Adaptive Icon</p>
+        <canvas id="icon2" width="1024" height="1024"></canvas>
+        <br>
+        <button onclick="downloadIcon('icon2', 'app_icon_foreground.png')">⬇️ تحميل app_icon_foreground.png</button>
+        <p style="font-size: 12px; color: #888;">1024x1024 • PNG • Transparent</p>
+    </div>
+
+    <script>
+        // رسم الأيقونة الأولى (مع خلفية)
+        const canvas1 = document.getElementById('icon1');
+        const ctx1 = canvas1.getContext('2d');
+        
+        // خلفية متدرجة أنيقة
+        const gradient1 = ctx1.createLinearGradient(0, 0, 1024, 1024);
+        gradient1.addColorStop(0, '#16A34A');
+        gradient1.addColorStop(0.5, '#15803D');
+        gradient1.addColorStop(1, '#059669');
+        ctx1.fillStyle = gradient1;
+        
+        // رسم مستطيل بزوايا دائرية
+        ctx1.beginPath();
+        ctx1.roundRect(0, 0, 1024, 1024, 180);
+        ctx1.fill();
+        
+        // ظل للعناصر
+        ctx1.shadowColor = 'rgba(0, 0, 0, 0.3)';
+        ctx1.shadowBlur = 20;
+        ctx1.shadowOffsetX = 5;
+        ctx1.shadowOffsetY = 5;
+        
+        // رسم دائرة خلفية للشعار
+        ctx1.fillStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx1.beginPath();
+        ctx1.arc(512, 512, 380, 0, Math.PI * 2);
+        ctx1.fill();
+        
+        ctx1.shadowColor = 'transparent';
+        
+        // رسم حقيبة تسوق محسّنة
+        ctx1.strokeStyle = 'white';
+        ctx1.fillStyle = 'white';
+        ctx1.lineWidth = 45;
+        ctx1.lineCap = 'round';
+        ctx1.lineJoin = 'round';
+        
+        // جسم الحقيبة
+        ctx1.beginPath();
+        ctx1.moveTo(300, 420);
+        ctx1.lineTo(280, 800);
+        ctx1.quadraticCurveTo(280, 850, 330, 850);
+        ctx1.lineTo(694, 850);
+        ctx1.quadraticCurveTo(744, 850, 744, 800);
+        ctx1.lineTo(724, 420);
+        ctx1.closePath();
+        ctx1.stroke();
+        
+        // مقبض الحقيبة أنيق
+        ctx1.beginPath();
+        ctx1.arc(512, 380, 170, Math.PI + 0.3, -0.3, false);
+        ctx1.stroke();
+        
+        // إضافة تفاصيل صغيرة
+        ctx1.lineWidth = 35;
+        ctx1.beginPath();
+        ctx1.moveTo(380, 550);
+        ctx1.lineTo(644, 550);
+        ctx1.stroke();
+        
+        // حرف E كبير وجميل
+        ctx1.shadowColor = 'rgba(0, 0, 0, 0.2)';
+        ctx1.shadowBlur = 10;
+        ctx1.shadowOffsetX = 3;
+        ctx1.shadowOffsetY = 3;
+        ctx1.font = 'bold 260px "Segoe UI", Arial, sans-serif';
+        ctx1.textAlign = 'center';
+        ctx1.textBaseline = 'middle';
+        ctx1.fillStyle = 'white';
+        ctx1.fillText('E', 512, 680);
+        
+        // رسم الأيقونة الثانية (شفافة)
+        const canvas2 = document.getElementById('icon2');
+        const ctx2 = canvas2.getContext('2d');
+        
+        // رسم نفس التصميم بدون خلفية
+        ctx2.strokeStyle = '#16A34A';
+        ctx2.fillStyle = '#16A34A';
+        ctx2.lineWidth = 45;
+        ctx2.lineCap = 'round';
+        ctx2.lineJoin = 'round';
+        
+        // دائرة خلفية شفافة
+        ctx2.fillStyle = 'rgba(22, 163, 74, 0.1)';
+        ctx2.beginPath();
+        ctx2.arc(512, 512, 400, 0, Math.PI * 2);
+        ctx2.fill();
+        
+        // حقيبة تسوق
+        ctx2.strokeStyle = '#16A34A';
+        ctx2.fillStyle = '#16A34A';
+        
+        ctx2.beginPath();
+        ctx2.moveTo(300, 420);
+        ctx2.lineTo(280, 800);
+        ctx2.quadraticCurveTo(280, 850, 330, 850);
+        ctx2.lineTo(694, 850);
+        ctx2.quadraticCurveTo(744, 850, 744, 800);
+        ctx2.lineTo(724, 420);
+        ctx2.closePath();
+        ctx2.stroke();
+        
+        ctx2.beginPath();
+        ctx2.arc(512, 380, 170, Math.PI + 0.3, -0.3, false);
+        ctx2.stroke();
+        
+        ctx2.lineWidth = 35;
+        ctx2.beginPath();
+        ctx2.moveTo(380, 550);
+        ctx2.lineTo(644, 550);
+        ctx2.stroke();
+        
+        // حرف E
+        ctx2.font = 'bold 260px "Segoe UI", Arial, sans-serif';
+        ctx2.textAlign = 'center';
+        ctx2.textBaseline = 'middle';
+        ctx2.fillStyle = '#16A34A';
+        ctx2.fillText('E', 512, 680);
+        
+        // دالة التحميل بصيغة PNG عالية الجودة
+        function downloadIcon(canvasId, filename) {
+            const canvas = document.getElementById(canvasId);
+            
+            // التأكد من أن الاسم يحتوي على .png
+            if (!filename.endsWith('.png')) {
+                filename += '.png';
+            }
+            
+            // تحويل لـ PNG بجودة عالية
+            canvas.toBlob(function(blob) {
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.download = filename;
+                link.href = url;
+                link.click();
+                URL.revokeObjectURL(url);
+            }, 'image/png', 1.0);
+        }
+        
+        // التحقق والتأكيد عند تحميل الصفحة
+        window.onload = function() {
+            console.log('✅ مولد الأيقونات جاهز');
+            console.log('📦 الملفات المطلوبة:');
+            console.log('   1. app_icon.png (1024x1024)');
+            console.log('   2. app_icon_foreground.png (1024x1024)');
+            alert('✅ جاهز! اضغط على الأزرار لتحميل الأيقونات بصيغة PNG\n\n📍 ضعها في: assets\\icon\\');
+        };
+    </script>
+</body>
+</html>
+

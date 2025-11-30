@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Engeb - أيقونة التطبيق الاحترافية</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            text-align: center;
+            max-width: 900px;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        p {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .icon-preview {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            margin: 30px 0;
+        }
+        .icon-item {
+            text-align: center;
+        }
+        .icon-size {
+            font-size: 12px;
+            color: #888;
+            margin-top: 8px;
+        }
+        canvas {
+            border-radius: 20%;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            margin: 5px;
+            background: white;
+        }
+        button {
+            background: linear-gradient(135deg, #16A34A 0%, #22C55E 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 16px;
+            border-radius: 50px;
+            cursor: pointer;
+            margin: 10px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            font-weight: bold;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(22, 163, 74, 0.4);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        .instructions {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 30px;
+            text-align: right;
+            line-height: 1.8;
+        }
+        .instructions h3 {
+            color: #16A34A;
+            margin-bottom: 15px;
+        }
+        .instructions ol {
+            padding-right: 20px;
+        }
+        .instructions li {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛍️ Engeb - أيقونة التطبيق</h1>
+        <p>أيقونة احترافية لمتجرك الإلكتروني</p>
+        
+        <div class="icon-preview" id="iconPreview"></div>
+        
+        <div>
+            <button onclick="downloadAll()">📥 تحميل جميع الأحجام</button>
+            <button onclick="generateIcons()">🔄 إعادة التوليد</button>
+        </div>
+        
+        <div class="instructions">
+            <h3>📋 طريقة الاستخدام:</h3>
+            <ol>
+                <li>اضغط على زر "تحميل جميع الأحجام" لتحميل الأيقونات</li>
+                <li>احفظ الملفات في مجلد <code>assets/icon/</code></li>
+                <li>قم بتشغيل الأمر: <code>flutter pub run flutter_launcher_icons</code></li>
+                <li>أو استخدم: <code>flutter pub get</code> ثم <code>dart run flutter_launcher_icons</code></li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        const sizes = [
+            { size: 1024, name: 'app_icon.png', label: '1024×1024 (الأصلية)' },
+            { size: 512, name: 'app_icon_512.png', label: '512×512' },
+            { size: 192, name: 'app_icon_192.png', label: '192×192' },
+            { size: 180, name: 'app_icon_foreground.png', label: '180×180 (Foreground)' }
+        ];
+
+        function drawIcon(canvas, size) {
+            const ctx = canvas.getContext('2d');
+            const center = size / 2;
+            
+            // خلفية متدرجة احترافية
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#16A34A');
+            gradient.addColorStop(0.5, '#22C55E');
+            gradient.addColorStop(1, '#4ADE80');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, size, size);
+            
+            // دوائر زخرفية في الخلفية
+            ctx.globalAlpha = 0.1;
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(size * 0.2, size * 0.2, size * 0.3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(size * 0.8, size * 0.8, size * 0.4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            
+            // رسم حقيبة تسوق احترافية
+            const bagWidth = size * 0.5;
+            const bagHeight = size * 0.55;
+            const bagX = center - bagWidth / 2;
+            const bagY = center - bagHeight / 2 + size * 0.05;
+            
+            // ظل الحقيبة
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+            ctx.shadowBlur = size * 0.05;
+            ctx.shadowOffsetY = size * 0.02;
+            
+            // جسم الحقيبة
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.roundRect(bagX, bagY + size * 0.08, bagWidth, bagHeight * 0.85, size * 0.05);
+            ctx.fill();
+            
+            // مقبض الحقيبة
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = size * 0.06;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.arc(center, bagY + size * 0.08, size * 0.15, Math.PI * 1.1, Math.PI * 1.9);
+            ctx.stroke();
+            
+            // إزالة الظل للعناصر التالية
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetY = 0;
+            
+            // خطوط زخرفية على الحقيبة
+            ctx.fillStyle = '#16A34A';
+            ctx.globalAlpha = 0.15;
+            
+            // خط عمودي 1
+            ctx.fillRect(bagX + bagWidth * 0.25, bagY + size * 0.15, size * 0.02, bagHeight * 0.7);
+            // خط عمودي 2
+            ctx.fillRect(bagX + bagWidth * 0.75, bagY + size * 0.15, size * 0.02, bagHeight * 0.7);
+            
+            ctx.globalAlpha = 1;
+            
+            // أيقونة إضافية صغيرة (علامة صح في دائرة)
+            const checkSize = size * 0.18;
+            const checkX = bagX + bagWidth - checkSize / 2;
+            const checkY = bagY + bagHeight * 0.85;
+            
+            // دائرة خضراء
+            ctx.fillStyle = '#16A34A';
+            ctx.beginPath();
+            ctx.arc(checkX, checkY, checkSize / 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // علامة صح بيضاء
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = size * 0.015;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            ctx.moveTo(checkX - checkSize * 0.25, checkY);
+            ctx.lineTo(checkX - checkSize * 0.05, checkY + checkSize * 0.2);
+            ctx.lineTo(checkX + checkSize * 0.25, checkY - checkSize * 0.15);
+            ctx.stroke();
+        }
+
+        function generateIcons() {
+            const preview = document.getElementById('iconPreview');
+            preview.innerHTML = '';
+            
+            sizes.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'icon-item';
+                
+                const canvas = document.createElement('canvas');
+                canvas.width = item.size;
+                canvas.height = item.size;
+                canvas.style.width = '120px';
+                canvas.style.height = '120px';
+                
+                drawIcon(canvas, item.size);
+                
+                const label = document.createElement('div');
+                label.className = 'icon-size';
+                label.textContent = item.label;
+                
+                div.appendChild(canvas);
+                div.appendChild(label);
+                preview.appendChild(div);
+            });
+        }
+
+        function downloadAll() {
+            sizes.forEach(item => {
+                const canvas = document.createElement('canvas');
+                canvas.width = item.size;
+                canvas.height = item.size;
+                drawIcon(canvas, item.size);
+                
+                canvas.toBlob(blob => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = item.name;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                });
+            });
+            
+            alert('✅ تم بدء تحميل جميع الأحجام!\nسيتم حفظ 4 ملفات في مجلد التحميلات.');
+        }
+
+        // توليد الأيقونات عند تحميل الصفحة
+        window.onload = generateIcons;
+    </script>
+</body>
+</html>
+

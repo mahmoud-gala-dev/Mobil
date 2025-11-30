@@ -1,0 +1,226 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import '../../../state/auth_provider.dart';
+import '../../widgets/common_app_bar.dart';
+import '../../widgets/app_drawer.dart';
+
+class CustomerDashboard extends StatelessWidget {
+  const CustomerDashboard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    final colorScheme = Theme.of(context).colorScheme;
+
+    if (!auth.isAuthenticated || !auth.isCustomer) {
+      return Scaffold(
+        appBar: const CommonAppBar(title: 'حسابي'),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.person_off_outlined, size: 100, color: Colors.grey[400]),
+              const SizedBox(height: 24),
+              const Text(
+                'يجب تسجيل الدخول أولاً',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () => context.push('/auth/customer/login'),
+                child: const Text('تسجيل الدخول'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final user = auth.user!;
+
+    return Scaffold(
+      appBar: const CommonAppBar(
+        title: 'حسابي',
+        leadingIcon: Icons.account_circle_rounded,
+      ),
+      drawer: const AppDrawer(),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // User Info Card
+            Card(
+              elevation: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 40,
+                      backgroundColor: colorScheme.primaryContainer,
+                      child: Icon(
+                        Icons.person,
+                        size: 45,
+                        color: colorScheme.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            user.name,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            user.email,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                          if (user.phone != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              user.phone!,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Menu Items
+            const Text(
+              'الحساب والإعدادات',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            _buildMenuItem(
+              context,
+              icon: Icons.shopping_bag_outlined,
+              title: 'طلباتي',
+              subtitle: 'عرض وتتبع طلباتك',
+              onTap: () => context.push('/orders'),
+            ),
+            _buildMenuItem(
+              context,
+              icon: Icons.favorite_border,
+              title: 'المفضلة',
+              subtitle: 'المنتجات المفضلة لديك',
+              onTap: () => context.push('/favorites'),
+            ),
+            _buildMenuItem(
+              context,
+              icon: Icons.location_on_outlined,
+              title: 'العناوين',
+              subtitle: 'إدارة عناوين التوصيل',
+              onTap: () => context.push('/addresses'),
+            ),
+            _buildMenuItem(
+              context,
+              icon: Icons.edit_outlined,
+              title: 'تعديل الملف الشخصي',
+              subtitle: 'تحديث معلوماتك',
+              onTap: () => context.push('/profile'),
+            ),
+            _buildMenuItem(
+              context,
+              icon: Icons.lock_outline,
+              title: 'تغيير كلمة المرور',
+              subtitle: 'تحديث كلمة المرور',
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('قريباً...')),
+                );
+              },
+            ),
+            _buildMenuItem(
+              context,
+              icon: Icons.logout,
+              title: 'تسجيل الخروج',
+              subtitle: 'الخروج من الحساب',
+              onTap: () => _showLogoutDialog(context),
+              textColor: Colors.red,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMenuItem(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+    Color? textColor,
+  }) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: Icon(icon, color: textColor ?? Theme.of(context).colorScheme.primary),
+        title: Text(
+          title,
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: textColor,
+          ),
+        ),
+        subtitle: Text(subtitle),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+        onTap: onTap,
+      ),
+    );
+  }
+
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('تسجيل الخروج'),
+        content: const Text('هل تريد تسجيل الخروج من حسابك؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إلغاء'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await context.read<AuthProvider>().logout();
+              if (context.mounted) {
+                context.go('/home');
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('تم تسجيل الخروج بنجاح')),
+                );
+              }
+            },
+            child: const Text('تسجيل الخروج', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+

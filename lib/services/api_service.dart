@@ -890,6 +890,59 @@ class ApiService {
     return res.data as Map<String, dynamic>;
   }
 
+  // ============ MYFATOORAH PAYMENT ============
+
+  /// تنفيذ الدفع عبر MyFatoorah - إنشاء فاتورة والحصول على رابط الدفع
+  Future<Map<String, dynamic>> executeMyFatoorahPayment({
+    required int orderId,
+    double? amount,
+    String? currency,
+    int? paymentMethodId,
+    Map<String, dynamic>? customer,
+  }) async {
+    final res = await _dio.post('/payments/myfatoorah/execute', data: {
+      'order_id': orderId,
+      if (amount != null) 'amount': amount,
+      if (currency != null) 'currency': currency,
+      if (paymentMethodId != null) 'payment_method_id': paymentMethodId,
+      if (customer != null) 'customer': customer,
+    });
+    return res.data as Map<String, dynamic>;
+  }
+
+  /// الاستعلام عن حالة معاملة الدفع
+  Future<Map<String, dynamic>> getMyFatoorahPaymentStatus(int transactionId) async {
+    final res = await _dio.get('/payments/myfatoorah/status', queryParameters: {
+      'transaction_id': transactionId,
+    });
+    return res.data as Map<String, dynamic>;
+  }
+
+  /// جلب طرق الدفع المتاحة
+  Future<List<Map<String, dynamic>>> getAvailablePaymentMethods() async {
+    try {
+      final res = await _dio.get('/payment-methods');
+      final List data = res.data['data'] as List? ?? [];
+      return data.cast<Map<String, dynamic>>();
+    } catch (e) {
+      print('Error fetching payment methods: $e');
+      // إرجاع طريقة الدفع النقدي كافتراضية
+      return [
+        {'code': 'cash', 'name': 'الدفع عند الاستلام', 'is_active': true}
+      ];
+    }
+  }
+
+  /// التحقق من توفر بوابة MyFatoorah
+  Future<bool> isMyFatoorahEnabled() async {
+    try {
+      final methods = await getAvailablePaymentMethods();
+      return methods.any((m) => m['code'] == 'myfatoorah' && m['is_active'] == true);
+    } catch (e) {
+      return false;
+    }
+  }
+
   // ============ WISHLIST ============
   Future<Map<String, dynamic>> wishlist() async {
     final res = await _dio.get('/wishlist');

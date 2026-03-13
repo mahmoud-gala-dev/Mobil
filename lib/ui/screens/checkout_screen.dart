@@ -6,6 +6,8 @@ import '../../state/cart_provider.dart';
 import '../../state/auth_provider.dart';
 import '../../models/models.dart';
 import '../widgets/app_drawer.dart';
+import '../../features/payment/state/payment_provider.dart';
+import '../../features/payment/ui/widgets/payment_methods_widget.dart';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -24,7 +26,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   bool _isLoading = true;
   bool _submitting = false;
   bool _isLoadingCities = false;
-  
+
   List<AddressModel> _savedAddresses = [];
   AddressModel? _selectedAddress;
   String _deliveryType = 'immediate';
@@ -42,6 +44,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     super.initState();
     print('🛒 [Checkout] تهيئة صفحة إتمام الطلب...');
     _loadUserData();
+    // تحميل طرق الدفع باستخدام PaymentProvider
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = context.read<PaymentProvider>();
+      provider.selectPaymentMethod(_paymentMethod);
+      provider.loadPaymentMethods();
+    });
   }
 
   Future<void> _loadUserData() async {
@@ -178,6 +186,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       } catch (e) {
         print('⚠️ [Checkout] لا توجد عناوين محفوظة: $e');
       }
+
+      // طرق الدفع يتم تحميلها عبر PaymentProvider في initState
     } catch (e) {
       print('❌ [Checkout] خطأ في جلب البيانات: $e');
     } finally {
@@ -230,7 +240,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Future<void> _submit() async {
     print('📤 [Checkout] محاولة إرسال الطلب...');
-    
+
     if (!_formKey.currentState!.validate()) {
       print('⚠️ [Checkout] فشل التحقق من صحة النموذج');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -241,9 +251,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       );
       return;
     }
-    
+
     setState(() => _submitting = true);
-    
+
     try {
       print('🚀 [Checkout] إرسال البيانات إلى API...');
       print('   الاسم: ${_name.text}');
@@ -252,7 +262,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       print('   المحافظة: $_selectedGovernorate');
       print('   المدينة: $_selectedCity');
       print('   العنوان: ${_address.text}');
-      
+      print('   طريقة الدفع: $_paymentMethod');
+
+      // تحديد طريقة الدفع للـ API
+      final apiPaymentMethod = _paymentMethod == 'myfatoorah' ? 'myfatoorah' : 'cash';
+
       final res = await ApiService.I.checkout(
         name: _name.text,
         email: _email.text,
@@ -262,39 +276,46 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         deliveryGovernorate: _selectedGovernorate ?? '',
         deliveryNotes: _notes.text.isNotEmpty ? _notes.text : null,
         deliveryType: _deliveryType,
-        paymentMethod: _paymentMethod,
+        paymentMethod: apiPaymentMethod,
       );
-      
+
       print('✅ [Checkout] تم إنشاء الطلب بنجاح!');
-      
+
       if (!mounted) return;
-      
-      // تحديث السلة
-      context.read<CartProvider>().refresh();
-      
-      // عرض رسالة نجاح
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.white),
-              SizedBox(width: 12),
-              Text('تم إنشاء الطلب بنجاح'),
-            ],
-          ),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 3),
-        ),
-      );
-      
-      // الانتقال لصفحة تتبع الطلب
+
+      // استخراج معلومات الطلب
       final orders = res['orders'] as List?;
-      if (orders != null && orders.isNotEmpty) {
-        final orderNumber = orders.first['order_number'] as String;
-        print('🔢 [Checkout] رقم الطلب: $orderNumber');
-        context.push('/order-track/$orderNumber');
+      final firstOrder = orders?.isNotEmpty == true ? orders!.first : null;
+      final orderId = firstOrder?['id'] as int?;
+      final orderNumber = firstOrder?['order_number'] as String?;
+
+      // إذا كانت طريقة الدفع MyFatoorah، ننتقل للدفع الإلكتروني
+      if (_paymentMethod == 'myfatoorah' && orderId != null) {
+        await _processMyFatoorahPayment(orderId, orderNumber);
       } else {
-        context.go('/');
+        // الدفع عند الاستلام - تحديث السلة والانتقال لصفحة النجاح
+        context.read<CartProvider>().refresh();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 12),
+                Text('تم إنشاء الطلب بنجاح'),
+              ],
+            ),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
+
+        if (orderNumber != null) {
+          print('🔢 [Checkout] رقم الطلب: $orderNumber');
+          context.push('/order-track/$orderNumber');
+        } else {
+          context.go('/');
+        }
       }
     } catch (e) {
       print('❌ [Checkout] فشل إنشاء الطلب: $e');
@@ -315,6 +336,89 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  /// معالجة الدفع عبر MyFatoorah
+  Future<void> _processMyFatoorahPayment(int orderId, String? orderNumber) async {
+    print('💳 [Checkout] بدء عملية الدفع عبر MyFatoorah للطلب: $orderId');
+
+    final paymentProvider = context.read<PaymentProvider>();
+
+    final state = await paymentProvider.executeMyFatoorahPayment(
+      orderId: orderId,
+      customerName: _name.text,
+      customerEmail: _email.text,
+      customerPhone: _phone.text,
+    );
+
+    if (!mounted) return;
+
+    if (state.paymentUrl != null) {
+      print('✅ [Checkout] تم الحصول على رابط الدفع');
+      print('   URL: ${state.paymentUrl}');
+      print('   Transaction ID: ${state.transactionId}');
+
+      // الانتقال لصفحة WebView للدفع
+      context.push(
+        '/payment/webview'
+        '?url=${Uri.encodeComponent(state.paymentUrl!)}'
+        '&orderId=$orderId'
+        '&tx=${state.transactionId ?? 0}',
+      );
+    } else if (state.errorMessage != null) {
+      print('❌ [Checkout] فشل الدفع: ${state.errorMessage}');
+      _showPaymentErrorDialog(state.errorMessage!, orderNumber);
+    }
+  }
+
+  /// عرض dialog خطأ الدفع مع خيارات
+  void _showPaymentErrorDialog(String message, String? orderNumber) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.error_outline, color: Colors.red),
+            SizedBox(width: 8),
+            Text('خطأ في الدفع'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(message),
+            const SizedBox(height: 16),
+            const Text(
+              'تم حفظ طلبك. يمكنك المحاولة مرة أخرى أو اختيار الدفع عند الاستلام.',
+              style: TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // تغيير طريقة الدفع للدفع عند الاستلام
+              this.context.read<PaymentProvider>().selectPaymentMethod('cash');
+              setState(() => _paymentMethod = 'cash');
+            },
+            child: const Text('الدفع عند الاستلام'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // محاولة الدفع مرة أخرى
+              if (orderNumber != null) {
+                // TODO: إعادة محاولة الدفع
+              }
+            },
+            child: const Text('إعادة المحاولة'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _selectAddress(AddressModel address) async {
@@ -354,7 +458,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     final cart = context.watch<CartProvider>();
     
     return Scaffold(
@@ -445,7 +551,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 'املأ البيانات التالية لإكمال الطلب',
                                 style: TextStyle(
                                   fontSize: 13,
-                                  color: Colors.grey[700],
+                                  color: isDark ? Colors.grey[400] : Colors.grey[700],
                                 ),
                               ),
                             ],
@@ -522,14 +628,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                               width: 220,
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: isSelected 
-                                    ? colorScheme.primaryContainer 
-                                    : Colors.grey[50],
+                                color: isSelected
+                                    ? colorScheme.primaryContainer
+                                    : isDark ? const Color(0xFF2C2C2C) : Colors.grey[50],
                                 borderRadius: BorderRadius.circular(16),
                                 border: Border.all(
-                                  color: isSelected 
-                                      ? colorScheme.primary 
-                                      : Colors.grey[300]!,
+                                  color: isSelected
+                                      ? colorScheme.primary
+                                      : isDark ? Colors.grey[700]! : Colors.grey[300]!,
                                   width: isSelected ? 2.5 : 1.5,
                                 ),
                                 boxShadow: isSelected
@@ -551,9 +657,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                       Icon(
                                         Icons.location_on,
                                         size: 16,
-                                        color: isSelected 
-                                            ? colorScheme.primary 
-                                            : Colors.grey[600],
+                                        color: isSelected
+                                            ? colorScheme.primary
+                                            : isDark ? Colors.grey[400] : Colors.grey[600],
                                       ),
                                       const SizedBox(width: 4),
                                       Expanded(
@@ -561,9 +667,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                           addr.label,
                                           style: TextStyle(
                                             fontWeight: FontWeight.bold,
-                                            color: isSelected 
-                                                ? colorScheme.primary 
-                                                : Colors.black87,
+                                            color: isSelected
+                                                ? colorScheme.primary
+                                                : isDark ? Colors.white : Colors.black87,
                                           ),
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
@@ -594,7 +700,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                     addr.address,
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: Colors.grey[700],
+                                      color: isDark ? Colors.grey[400] : Colors.grey[700],
                                     ),
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
@@ -621,14 +727,31 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   // المحافظة (Dropdown)
                   DropdownButtonFormField<String>(
                     value: _selectedGovernorate,
+                    dropdownColor: isDark ? const Color(0xFF2C2C2C) : Colors.white,
+                    style: TextStyle(
+                      color: isDark ? Colors.white : Colors.black87,
+                      fontSize: 15,
+                    ),
                     decoration: InputDecoration(
                       labelText: 'المحافظة',
-                      prefixIcon: const Icon(Icons.map),
+                      labelStyle: TextStyle(
+                        color: isDark ? Colors.grey[400] : Colors.grey[700],
+                      ),
+                      prefixIcon: Icon(
+                        Icons.map,
+                        color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: isDark ? Colors.grey[700]! : Colors.grey[300]!,
+                        ),
+                      ),
                       filled: true,
-                      fillColor: Colors.grey[50],
+                      fillColor: isDark ? const Color(0xFF2C2C2C) : Colors.grey[50],
                     ),
                     hint: const Text('اختر المحافظة'),
                     isExpanded: true,
@@ -666,14 +789,31 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   // المدينة (Dropdown)
                   DropdownButtonFormField<String>(
                     value: _selectedCity,
+                    dropdownColor: isDark ? const Color(0xFF2C2C2C) : Colors.white,
+                    style: TextStyle(
+                      color: isDark ? Colors.white : Colors.black87,
+                      fontSize: 15,
+                    ),
                     decoration: InputDecoration(
                       labelText: 'المدينة',
-                      prefixIcon: const Icon(Icons.location_city),
+                      labelStyle: TextStyle(
+                        color: isDark ? Colors.grey[400] : Colors.grey[700],
+                      ),
+                      prefixIcon: Icon(
+                        Icons.location_city,
+                        color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: isDark ? Colors.grey[700]! : Colors.grey[300]!,
+                        ),
+                      ),
                       filled: true,
-                      fillColor: Colors.grey[50],
+                      fillColor: isDark ? const Color(0xFF2C2C2C) : Colors.grey[50],
                       suffixIcon: _isLoadingCities
                           ? const Padding(
                               padding: EdgeInsets.all(12),
@@ -737,9 +877,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.grey[50],
+                      color: isDark ? const Color(0xFF2C2C2C) : Colors.grey[50],
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.grey[300]!),
+                      border: Border.all(color: isDark ? Colors.grey[700]! : Colors.grey[300]!),
                     ),
                     child: Row(
                       children: [
@@ -750,8 +890,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 16),
                               decoration: BoxDecoration(
-                                color: _deliveryType == 'immediate' 
-                                    ? colorScheme.primary 
+                                color: _deliveryType == 'immediate'
+                                    ? colorScheme.primary
                                     : Colors.transparent,
                                 borderRadius: BorderRadius.circular(12),
                               ),
@@ -759,27 +899,27 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 children: [
                                   Icon(
                                     Icons.electric_bolt,
-                                    color: _deliveryType == 'immediate' 
-                                        ? Colors.white 
-                                        : Colors.grey[700],
+                                    color: _deliveryType == 'immediate'
+                                        ? Colors.white
+                                        : isDark ? Colors.grey[400] : Colors.grey[700],
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
                                     'توصيل فوري',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      color: _deliveryType == 'immediate' 
-                                          ? Colors.white 
-                                          : Colors.grey[700],
+                                      color: _deliveryType == 'immediate'
+                                          ? Colors.white
+                                          : isDark ? Colors.white : Colors.grey[700],
                                     ),
                                   ),
                                   Text(
                                     'خلال ساعتين',
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: _deliveryType == 'immediate' 
-                                          ? Colors.white70 
-                                          : Colors.grey[600],
+                                      color: _deliveryType == 'immediate'
+                                          ? Colors.white70
+                                          : isDark ? Colors.grey[500] : Colors.grey[600],
                                     ),
                                   ),
                                 ],
@@ -795,8 +935,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 16),
                               decoration: BoxDecoration(
-                                color: _deliveryType == 'scheduled' 
-                                    ? colorScheme.primary 
+                                color: _deliveryType == 'scheduled'
+                                    ? colorScheme.primary
                                     : Colors.transparent,
                                 borderRadius: BorderRadius.circular(12),
                               ),
@@ -804,27 +944,27 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                 children: [
                                   Icon(
                                     Icons.schedule,
-                                    color: _deliveryType == 'scheduled' 
-                                        ? Colors.white 
-                                        : Colors.grey[700],
+                                    color: _deliveryType == 'scheduled'
+                                        ? Colors.white
+                                        : isDark ? Colors.grey[400] : Colors.grey[700],
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
                                     'موعد محدد',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      color: _deliveryType == 'scheduled' 
-                                          ? Colors.white 
-                                          : Colors.grey[700],
+                                      color: _deliveryType == 'scheduled'
+                                          ? Colors.white
+                                          : isDark ? Colors.white : Colors.grey[700],
                                     ),
                                   ),
                                   Text(
                                     'حدد الوقت',
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: _deliveryType == 'scheduled' 
-                                          ? Colors.white70 
-                                          : Colors.grey[600],
+                                      color: _deliveryType == 'scheduled'
+                                          ? Colors.white70
+                                          : isDark ? Colors.grey[500] : Colors.grey[600],
                                     ),
                                   ),
                                 ],
@@ -846,145 +986,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ),
                   const SizedBox(height: 16),
                   
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.grey[50],
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.grey[300]!),
-                    ),
-                    child: Column(
-                      children: [
-                        InkWell(
-                          onTap: () => setState(() => _paymentMethod = 'cash'),
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                          child: Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: _paymentMethod == 'cash' 
-                                  ? colorScheme.primaryContainer 
-                                  : Colors.transparent,
-                              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: _paymentMethod == 'cash' 
-                                        ? colorScheme.primary 
-                                        : Colors.grey[300],
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    Icons.money,
-                                    color: _paymentMethod == 'cash' 
-                                        ? Colors.white 
-                                        : Colors.grey[700],
-                                    size: 20,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'الدفع عند الاستلام',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 15,
-                                          color: _paymentMethod == 'cash' 
-                                              ? colorScheme.primary 
-                                              : Colors.grey[800],
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        'ادفع نقداً عند استلام الطلب',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey[600],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                if (_paymentMethod == 'cash')
-                                  Icon(
-                                    Icons.check_circle,
-                                    color: colorScheme.primary,
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        Divider(height: 1, color: Colors.grey[300]),
-                        InkWell(
-                          onTap: () => setState(() => _paymentMethod = 'card'),
-                          borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
-                          child: Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: _paymentMethod == 'card' 
-                                  ? colorScheme.primaryContainer 
-                                  : Colors.transparent,
-                              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: _paymentMethod == 'card' 
-                                        ? colorScheme.primary 
-                                        : Colors.grey[300],
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: Icon(
-                                    Icons.credit_card,
-                                    color: _paymentMethod == 'card' 
-                                        ? Colors.white 
-                                        : Colors.grey[700],
-                                    size: 20,
-                                  ),
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'الدفع الإلكتروني',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 15,
-                                          color: _paymentMethod == 'card' 
-                                              ? colorScheme.primary 
-                                              : Colors.grey[800],
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        'ادفع باستخدام بطاقة الائتمان',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey[600],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                if (_paymentMethod == 'card')
-                                  Icon(
-                                    Icons.check_circle,
-                                    color: colorScheme.primary,
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                  PaymentMethodsWidget(
+                    onMethodChanged: (method) {
+                      setState(() => _paymentMethod = method);
+                    },
                   ),
                   
                   const SizedBox(height: 32),
@@ -1042,7 +1047,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.7),
+                            color: isDark
+                                ? Colors.black.withOpacity(0.3)
+                                : Colors.white.withOpacity(0.7),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Column(
@@ -1055,38 +1062,40 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                       Icon(
                                         Icons.shopping_bag_outlined,
                                         size: 18,
-                                        color: Colors.grey[700],
+                                        color: isDark ? Colors.grey[400] : Colors.grey[700],
                                       ),
                                       const SizedBox(width: 6),
                                       Text(
                                         'عدد المنتجات:',
                                         style: TextStyle(
                                           fontSize: 14,
-                                          color: Colors.grey[700],
+                                          color: isDark ? Colors.grey[400] : Colors.grey[700],
                                         ),
                                       ),
                                     ],
                                   ),
                                   Text(
                                     '${cart.items.length} منتج',
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 15,
                                       fontWeight: FontWeight.w600,
+                                      color: isDark ? Colors.white : Colors.black87,
                                     ),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 12),
-                              Divider(color: Colors.grey[300]),
+                              Divider(color: isDark ? Colors.grey[700] : Colors.grey[300]),
                               const SizedBox(height: 12),
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Text(
+                                  Text(
                                     'الإجمالي:',
                                     style: TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.bold,
+                                      color: isDark ? Colors.white : Colors.black87,
                                     ),
                                   ),
                                   Text(
@@ -1193,16 +1202,50 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     TextInputType? keyboardType,
     String? Function(String?)? validator,
   }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return TextFormField(
       controller: controller,
+      // تحديد لون النص صراحةً لضمان الوضوح
+      style: TextStyle(
+        color: isDark ? Colors.white : Colors.black87,
+        fontSize: 15,
+      ),
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon),
+        // لون التسمية
+        labelStyle: TextStyle(
+          color: isDark ? Colors.grey[400] : Colors.grey[700],
+        ),
+        // لون التسمية عند التركيز
+        floatingLabelStyle: TextStyle(
+          color: theme.colorScheme.primary,
+          fontWeight: FontWeight.w600,
+        ),
+        prefixIcon: Icon(
+          icon,
+          color: isDark ? Colors.grey[400] : Colors.grey[600],
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
         ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(
+            color: isDark ? Colors.grey[700]! : Colors.grey[300]!,
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(
+            color: theme.colorScheme.primary,
+            width: 2,
+          ),
+        ),
         filled: true,
-        fillColor: Colors.grey[50],
+        // لون الخلفية حسب الثيم
+        fillColor: isDark ? const Color(0xFF2C2C2C) : Colors.grey[50],
       ),
       maxLines: maxLines,
       keyboardType: keyboardType,

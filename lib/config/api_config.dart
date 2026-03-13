@@ -6,20 +6,20 @@ class ApiConfig {
   // ============ عناوين API ============
   
   /// عنوان API للتطوير (Development)
-  static const String developmentBaseUrl = 'http://localhost:8000/api/v1';
+  static const String developmentBaseUrl = 'https://adminxd.eliteonegrocery.com/api/v1';
   
   /// عنوان API للمحاكي Android
-  static const String androidEmulatorBaseUrl = 'http://10.0.2.2:8000/api/v1';
+  static const String androidEmulatorBaseUrl = 'https://adminxd.eliteonegrocery.com/api/v1';
   
   /// عنوان API للشبكة المحلية (استبدل بـ IP جهازك)
-  static const String localNetworkBaseUrl = 'http://192.168.1.100:8000/api/v1';
+  static const String localNetworkBaseUrl = 'https://adminxd.eliteonegrocery.com/api/v1';
   
   /// عنوان API للسيرفر الفعلي - Engeb Project
-  static const String serverBaseUrl = 'https://eliteonegrocery.com/ad/public/api/v1';
+  static const String serverBaseUrl = 'https://adminxd.eliteonegrocery.com/api/v1';
   
   /// عنوان API للإنتاج (Production)
   // static const String productionBaseUrl = 'https://eliteonegrocery.com/ad/public/api/v1';
-    static const String productionBaseUrl = 'https://eliteonegrocery.com/ad/public/api/v1';
+    static const String productionBaseUrl = 'https://adminxd.eliteonegrocery.com/api/v1';
 
   // ============ مسارات الصور والملفات ============
   

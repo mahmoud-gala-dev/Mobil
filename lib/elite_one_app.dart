@@ -32,6 +32,8 @@ import 'ui/screens/vendor/vendor_orders_screen.dart';
 import 'ui/screens/vendor_details_screen.dart';
 import 'ui/screens/static_page_screen.dart';
 import 'ui/screens/static_pages_list_screen.dart';
+import 'ui/screens/payment_result_screen.dart';
+import 'ui/screens/payment_webview_screen.dart';
 
 class EliteOneApp extends StatelessWidget {
   const EliteOneApp({super.key});
@@ -158,6 +160,41 @@ class EliteOneApp extends StatelessWidget {
         
         // Dashboard Routes
         GoRoute(path: '/customer/dashboard', builder: (_, __) => const CustomerDashboard()),
+
+        // Payment Routes - مسارات الدفع
+        GoRoute(
+          path: '/payment/result',
+          builder: (_, s) {
+            final result = s.uri.queryParameters['result'];
+            final orderId = int.tryParse(s.uri.queryParameters['orderId'] ?? '');
+            final transactionId = int.tryParse(s.uri.queryParameters['tx'] ?? '');
+            final errorCode = s.uri.queryParameters['err'];
+            return PaymentResultScreen(
+              result: result,
+              orderId: orderId,
+              transactionId: transactionId,
+              errorCode: errorCode,
+            );
+          },
+        ),
+        GoRoute(
+          path: '/payment/webview',
+          builder: (_, s) {
+            final url = Uri.decodeComponent(s.uri.queryParameters['url'] ?? '');
+            final orderId = int.tryParse(s.uri.queryParameters['orderId'] ?? '') ?? 0;
+            final transactionId = int.tryParse(s.uri.queryParameters['tx'] ?? '') ?? 0;
+            if (url.isEmpty) {
+              return const Scaffold(
+                body: Center(child: Text('خطأ: رابط الدفع مفقود')),
+              );
+            }
+            return PaymentWebViewScreen(
+              paymentUrl: url,
+              orderId: orderId,
+              transactionId: transactionId,
+            );
+          },
+        ),
       ],
     );
 

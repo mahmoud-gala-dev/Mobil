@@ -8,6 +8,7 @@ import 'state/products_provider.dart';
 import 'state/favorites_provider.dart';
 import 'state/theme_provider.dart';
 import 'services/shared_preferences_service.dart';
+import 'features/payment/state/payment_provider.dart';
 
 void main() async {
   // تهيئة Flutter Binding أولاً
@@ -43,6 +44,7 @@ void main() async {
       ChangeNotifierProvider(create: (_) => CartProvider()),
       ChangeNotifierProvider(create: (_) => ProductsProvider()..loadInitial()),
       ChangeNotifierProvider(create: (_) => FavoritesProvider()..refresh()),
+      ChangeNotifierProvider(create: (_) => PaymentProvider()),
     ],
     child: const EliteOneApp(),
   );

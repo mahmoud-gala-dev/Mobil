@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -5,9 +8,30 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Load local.properties
+val localProperties = Properties().apply {
+    val localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        load(FileInputStream(localPropertiesFile))
+    }
+}
+
+// SDK Version Configuration with defaults
+val minSdkVersion: Int = localProperties.getProperty("android.minSdk")?.toInt() ?: 26
+val targetSdkVersion: Int = localProperties.getProperty("android.targetSdk")?.toInt() ?: 35
+val compileSdkVersionInt: Int = localProperties.getProperty("android.compileSdk")?.toInt() ?: 35
+
+// Validate SDK versions
+require(minSdkVersion >= 26) {
+    "minSdkVersion must be at least 26 for myfatoorah_flutter compatibility. Current: $minSdkVersion"
+}
+require(minSdkVersion <= targetSdkVersion) {
+    "minSdkVersion ($minSdkVersion) cannot be greater than targetSdkVersion ($targetSdkVersion)"
+}
+
 android {
     namespace = "com.example.elite_one_mobile"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = compileSdkVersionInt
     ndkVersion = "27.0.12077973"
 
     compileOptions {
@@ -20,20 +44,22 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.example.elite_one_mobile"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = 23  // رفع من 21 إلى 23 لتحسين التوافق مع Platform Channels
-        targetSdk = flutter.targetSdkVersion
+
+        // SDK versions from local.properties
+        minSdk = minSdkVersion
+        targetSdk = targetSdkVersion
+
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-        
-        // إضافة MultiDex support لتجنب مشاكل DEX
+
+        // MultiDex support for large apps
         multiDexEnabled = true
+
+        // Build config fields for runtime access (if needed)
+        buildConfigField("int", "MIN_SDK_VERSION", "$minSdkVersion")
     }
-    
-    // تفعيل buildConfig لحل مشاكل التوافق
+
     buildFeatures {
         buildConfig = true
     }
@@ -41,9 +67,20 @@ android {
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+
+            // ProGuard rules for MyFatoorah (if needed)
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
+    }
+
+    // Lint options
+    lint {
+        checkReleaseBuilds = true
+        abortOnError = false
     }
 }
 
@@ -52,6 +89,6 @@ flutter {
 }
 
 dependencies {
-    // إضافة MultiDex support
+    // MultiDex support
     implementation("androidx.multidex:multidex:2.0.1")
 }

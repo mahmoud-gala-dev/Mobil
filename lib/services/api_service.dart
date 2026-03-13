@@ -816,22 +816,58 @@ class ApiService {
   }
 
   Future<void> addToCart(int productId, {int quantity = 1}) async {
-    await _dio.post('/cart', data: {
-      'product_id': productId,
-      'quantity': quantity,
-    });
+    try {
+      final res = await _dio.post('/cart', data: {
+        'product_id': productId,
+        'quantity': quantity,
+      });
+
+      // التحقق من استجابة الخطأ (مثل عدم توفر المخزون)
+      if (res.data is Map && res.data['success'] == false) {
+        final message = res.data['message'] ?? 'فشل إضافة المنتج للسلة';
+        print('❌ [API] addToCart فشل: $message');
+        throw Exception(message);
+      }
+    } on DioException catch (e) {
+      // معالجة خطأ 422 (Validation Error) أو أخطاء أخرى
+      if (e.response != null && e.response!.data is Map) {
+        final data = e.response!.data as Map<String, dynamic>;
+        final message = data['message'] ?? 'فشل إضافة المنتج للسلة';
+        print('❌ [API] addToCart خطأ ${e.response!.statusCode}: $message');
+        throw Exception(message);
+      }
+      // إعادة إلقاء الخطأ إذا لم يكن هناك رسالة
+      rethrow;
+    }
   }
   
   /// إضافة عرض للسلة باستخدام offer_id
   Future<void> addOfferToCart(int offerId, {int quantity = 1}) async {
     try {
       // استخدام نفس endpoint /cart مع type: 'offer'
-      await _dio.post('/cart', data: {
+      final res = await _dio.post('/cart', data: {
         'product_id': offerId,
         'quantity': quantity,
         'type': 'offer',
       });
+
+      // التحقق من استجابة الخطأ
+      if (res.data is Map && res.data['success'] == false) {
+        final message = res.data['message'] ?? 'فشل إضافة العرض للسلة';
+        print('❌ [API] addOfferToCart فشل: $message');
+        throw Exception(message);
+      }
+
       print('✅ تم إضافة العرض #$offerId للسلة');
+    } on DioException catch (e) {
+      // معالجة خطأ 422 (Validation Error) أو أخطاء أخرى
+      if (e.response != null && e.response!.data is Map) {
+        final data = e.response!.data as Map<String, dynamic>;
+        final message = data['message'] ?? 'فشل إضافة العرض للسلة';
+        print('❌ [API] addOfferToCart خطأ ${e.response!.statusCode}: $message');
+        throw Exception(message);
+      }
+      rethrow;
     } catch (e) {
       print('❌ خطأ في addOfferToCart: $e');
       rethrow;

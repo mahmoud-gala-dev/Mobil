@@ -312,9 +312,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
         if (orderNumber != null) {
           print('🔢 [Checkout] رقم الطلب: $orderNumber');
-          context.push('/order-track/$orderNumber');
+          // استخدام go بدلاً من push لإزالة صفحة Checkout من سجل التنقل
+          context.go('/order-track/$orderNumber');
         } else {
-          context.go('/');
+          context.go('/home');
         }
       }
     } catch (e) {

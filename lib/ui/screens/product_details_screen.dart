@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import '../../state/cart_provider.dart';
 import '../../state/favorites_provider.dart';
 import '../../state/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../models/models.dart';
+import '../../helpers/cart_helper.dart';
 import '../widgets/common_app_bar.dart';
 import '../widgets/product_card.dart';
 import '../widgets/app_drawer.dart';
@@ -108,7 +108,6 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> with Single
     }
 
     final colorScheme = Theme.of(context).colorScheme;
-    final cart = context.watch<CartProvider>();
     final favs = context.watch<FavoritesProvider>();
     final isFav = favs.isFav(product!.id);
 
@@ -343,14 +342,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> with Single
                   // زر الإضافة للسلة
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () {
-                        cart.add(product!);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('تم إضافة المنتج للسلة'),
-                            duration: Duration(seconds: 2),
-                          ),
-                        );
+                      onPressed: () async {
+                        // استخدام CartHelper للتحقق من تسجيل الدخول
+                        await CartHelper.addToCart(context, product!);
                       },
                       icon: const Icon(Icons.add_shopping_cart),
                       label: const Text(

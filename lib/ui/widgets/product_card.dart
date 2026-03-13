@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../models/models.dart';
 import '../../state/favorites_provider.dart';
-import '../../state/cart_provider.dart';
+import '../../helpers/cart_helper.dart';
 import '../../services/sound_service.dart';
 import '../../services/toast_service.dart';
 
@@ -11,15 +11,9 @@ class ProductCard extends StatelessWidget {
   final ProductModel product;
   const ProductCard({super.key, required this.product});
 
-  Future<void> _addToCart(BuildContext context, CartProvider cart) async {
-    // إضافة للسلة
-    cart.add(product);
-    
-    // تشغيل الصوت
-    await SoundService().playAddToCartSound();
-    
-    // عرض رسالة التوست
-    ToastService().showAddToCart(product.name);
+  Future<void> _addToCart(BuildContext context) async {
+    // استخدام CartHelper للتحقق من تسجيل الدخول وإضافة المنتج
+    await CartHelper.addToCart(context, product);
   }
 
   Future<void> _toggleFavorite(BuildContext context, FavoritesProvider favs) async {
@@ -42,7 +36,6 @@ class ProductCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final favs = context.watch<FavoritesProvider>();
-    final cart = context.watch<CartProvider>();
     final isFav = favs.isFav(product.id);
     return InkWell(
       onTap: () => context.push('/product/${product.id}'),
@@ -186,7 +179,7 @@ class ProductCard extends StatelessWidget {
                       width: double.infinity,
                       height: 30,
                       child: ElevatedButton(
-                        onPressed: () => _addToCart(context, cart),
+                        onPressed: () => _addToCart(context),
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                           shape: RoundedRectangleBorder(

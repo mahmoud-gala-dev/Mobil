@@ -3,7 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../services/api_service.dart';
 import '../../state/cart_provider.dart';
+import '../../state/auth_provider.dart';
 import '../../models/models.dart';
+import '../../helpers/cart_helper.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/common_app_bar.dart';
 import '../widgets/app_footer.dart';
@@ -413,9 +415,16 @@ class _OfferDetailsScreenState extends State<OfferDetailsScreen> {
   }
   
   Future<void> _addToCart(BuildContext context) async {
+    // التحقق من تسجيل الدخول أولاً
+    final auth = context.read<AuthProvider>();
+    if (!auth.isAuthenticated) {
+      CartHelper.checkAuthentication(context);
+      return;
+    }
+
     try {
       final cart = context.read<CartProvider>();
-      
+
       // محاولة إضافة العرض مباشرة
       if (_offerData?['id'] != null) {
         try {
@@ -437,13 +446,13 @@ class _OfferDetailsScreenState extends State<OfferDetailsScreen> {
               category: '',
               supplier: '',
             );
-            
+
             await cart.add(product, qty: _quantity);
           } else {
             throw Exception('لا يمكن إضافة هذا العرض للسلة');
           }
         }
-        
+
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

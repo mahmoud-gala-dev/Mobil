@@ -13,20 +13,21 @@ import 'features/payment/state/payment_provider.dart';
 void main() async {
   // تهيئة Flutter Binding أولاً
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // تهيئة SharedPreferences قبل إنشاء Providers
   // هذا يضمن أن جميع Providers يمكنها قراءة البيانات عند إنشائها
   if (kDebugMode) {
     print('🚀 [main] بدء تهيئة SharedPreferences...');
   }
-  
+
   try {
     final success = await SharedPreferencesService.instance.init();
     if (kDebugMode) {
       if (success) {
         print('✅ [main] تم تهيئة SharedPreferences بنجاح');
       } else {
-        print('⚠️ [main] فشل تهيئة SharedPreferences - سيتم استخدام قيم افتراضية');
+        print(
+            '⚠️ [main] فشل تهيئة SharedPreferences - سيتم استخدام قيم افتراضية');
         print('💡 [main] سيتم إعادة المحاولة عند الحاجة');
       }
     }
@@ -35,7 +36,7 @@ void main() async {
       print('❌ [main] خطأ غير متوقع في تهيئة SharedPreferences: $e');
     }
   }
-  
+
   // إنشاء التطبيق بعد تهيئة SharedPreferences
   final app = MultiProvider(
     providers: [
@@ -48,6 +49,6 @@ void main() async {
     ],
     child: const EliteOneApp(),
   );
-  
+
   runApp(app);
 }

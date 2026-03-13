@@ -20,6 +20,10 @@ class PaymentProvider extends ChangeNotifier {
   bool get isProcessing => _processState.isProcessing;
   List<PaymentMethod> get availableMethods => _methodsState.methods;
 
+  /// تفعيل الوضع التجريبي لـ MyFatoorah (للتطوير)
+  /// اضبط على true لإظهار MyFatoorah حتى لو لم يكن مفعّلاً في الخادم
+  static const bool _forceEnableMyFatoorahInTestMode = true;
+
   /// تحميل طرق الدفع المتاحة
   Future<void> loadPaymentMethods() async {
     _methodsState = const PaymentMethodsState.loading();
@@ -39,22 +43,53 @@ class PaymentProvider extends ChangeNotifier {
       }
 
       // جلب طرق الدفع من API
-      final methods = await ApiService.I.getAvailablePaymentMethods();
-      _log('طرق الدفع من API: $methods');
+      List<Map<String, dynamic>> methods = [];
+      try {
+        methods = await ApiService.I.getAvailablePaymentMethods();
+        _log('طرق الدفع من API: $methods');
+      } catch (e) {
+        _logError('فشل جلب طرق الدفع من API', e);
+        // في حالة الفشل، سنستخدم القيم الافتراضية
+      }
 
-      final paymentMethods = methods
+      List<PaymentMethod> paymentMethods = methods
           .map((m) => PaymentMethod.fromJson(m))
           .where((m) => m.isActive)
           .toList();
       _log('طرق الدفع المفلترة: ${paymentMethods.map((m) => m.code).toList()}');
 
-      // التحقق من وجود MyFatoorah
-      final hasMyFatoorah = paymentMethods.any((m) => m.isMyFatoorah);
+      // التحقق من وجود MyFatoorah من الـ API (الوضع المباشر)
+      bool hasMyFatoorahFromApi = paymentMethods.any((m) => m.isMyFatoorah);
+      bool isTestMode = false;
+
+      // ══════════════════════════════════════════════════════════════════
+      // إذا كان MyFatoorah مفعّل من الخادم = الوضع المباشر (Live)
+      // إذا لم يكن مفعّل ولكن الوضع التجريبي مفعّل = الوضع التجريبي (Test)
+      // ══════════════════════════════════════════════════════════════════
+      if (hasMyFatoorahFromApi) {
+        // الوضع المباشر - MyFatoorah مفعّل من الخادم
+        _log('✅ MyFatoorah مفعّل من الخادم - الوضع المباشر (Live Mode)');
+        isTestMode = false;
+      } else if (_forceEnableMyFatoorahInTestMode) {
+        // الوضع التجريبي - إضافة MyFatoorah يدوياً
+        _log('⚠️ MyFatoorah غير موجود في API - إضافته يدوياً للوضع التجريبي');
+        paymentMethods.add(const PaymentMethod(
+          code: 'myfatoorah',
+          name: 'الدفع الإلكتروني',
+          nameEn: 'Online Payment (Test Mode)',
+          isActive: true,
+          icon: 'credit_card',
+          supported: ['KNET', 'VISA', 'MasterCard'],
+        ));
+        isTestMode = true;
+      }
+
+      bool hasMyFatoorah = hasMyFatoorahFromApi || (isTestMode && _forceEnableMyFatoorahInTestMode);
 
       // تحديث Config
       PaymentConfig.updateFromServer(
         isEnabled: hasMyFatoorah,
-        isTestMode: true, // يمكن جلبها من الخادم
+        isTestMode: isTestMode,
       );
 
       // إضافة الدفع النقدي إذا لم يكن موجوداً
@@ -64,12 +99,26 @@ class PaymentProvider extends ChangeNotifier {
 
       _methodsState = PaymentMethodsState.loaded(paymentMethods);
 
-      _log('تم تحميل ${paymentMethods.length} طريقة دفع');
-      _log('MyFatoorah متاح: $hasMyFatoorah');
+      _log('✅ تم تحميل ${paymentMethods.length} طريقة دفع');
+      _log('✅ MyFatoorah متاح: $hasMyFatoorah');
+      _log('✅ الوضع: ${isTestMode ? "تجريبي (Test)" : "مباشر (Live)"}');
 
     } catch (e) {
       _logError('فشل تحميل طرق الدفع', e);
-      _methodsState = PaymentMethodsState.error('فشل تحميل طرق الدفع');
+
+      // ══════════════════════════════════════════════════════════════════
+      // Fallback: تقديم طرق دفع افتراضية حتى في حالة الخطأ
+      // ══════════════════════════════════════════════════════════════════
+      if (_forceEnableMyFatoorahInTestMode) {
+        _log('⚠️ استخدام طرق الدفع الافتراضية بسبب الخطأ');
+        _methodsState = PaymentMethodsState.loaded([
+          PaymentMethod.cash,
+          PaymentMethod.myfatoorah,
+        ]);
+        PaymentConfig.updateFromServer(isEnabled: true, isTestMode: true);
+      } else {
+        _methodsState = PaymentMethodsState.error('فشل تحميل طرق الدفع');
+      }
     }
 
     notifyListeners();

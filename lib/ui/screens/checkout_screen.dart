@@ -1,50 +1,66 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../services/api_service.dart';
 import '../../state/cart_provider.dart';
 import '../../state/auth_provider.dart';
 import '../../models/models.dart';
-import '../widgets/app_drawer.dart';
 import '../../features/payment/state/payment_provider.dart';
 import '../../features/payment/ui/widgets/payment_methods_widget.dart';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
+
   @override
   State<CheckoutScreen> createState() => _CheckoutScreenState();
 }
 
-class _CheckoutScreenState extends State<CheckoutScreen> {
+class _CheckoutScreenState extends State<CheckoutScreen>
+    with TickerProviderStateMixin {
+  // Form Controllers
   final _formKey = GlobalKey<FormState>();
-  final _name = TextEditingController();
-  final _email = TextEditingController();
-  final _phone = TextEditingController();
-  final _address = TextEditingController();
-  final _notes = TextEditingController();
-  
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _addressController = TextEditingController();
+  final _notesController = TextEditingController();
+
+  // State
+  int _currentStep = 0;
   bool _isLoading = true;
   bool _submitting = false;
   bool _isLoadingCities = false;
 
+  // Data
   List<AddressModel> _savedAddresses = [];
   AddressModel? _selectedAddress;
   String _deliveryType = 'immediate';
   String _paymentMethod = 'cash';
-  
-  // للمحافظات والمدن
+
+  // Location
   List<Map<String, dynamic>> _governorates = [];
   List<Map<String, dynamic>> _cities = [];
   String? _selectedGovernorate;
   int? _selectedGovernorateId;
   String? _selectedCity;
 
+  // Animation
+  late AnimationController _fadeController;
+  late Animation<double> _fadeAnimation;
+
   @override
   void initState() {
     super.initState();
-    print('🛒 [Checkout] تهيئة صفحة إتمام الطلب...');
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeInOut,
+    );
     _loadUserData();
-    // تحميل طرق الدفع باستخدام PaymentProvider
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = context.read<PaymentProvider>();
       provider.selectPaymentMethod(_paymentMethod);
@@ -52,79 +68,67 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     });
   }
 
+  @override
+  void dispose() {
+    _fadeController.dispose();
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _addressController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadUserData() async {
-    print('📥 [Checkout] جلب بيانات المستخدم...');
     setState(() => _isLoading = true);
-    
+
     try {
-      // التحقق من تسجيل الدخول أولاً
       final auth = context.read<AuthProvider>();
-      
+
       if (!auth.isAuthenticated) {
-        print('⚠️ [Checkout] المستخدم غير مسجل دخول، التحويل لصفحة تسجيل الدخول');
-        
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Row(
+            SnackBar(
+              content: const Row(
                 children: [
                   Icon(Icons.info_outline, color: Colors.white),
                   SizedBox(width: 12),
-                  Expanded(
-                    child: Text('يجب تسجيل الدخول أولاً لإتمام الطلب'),
-                  ),
+                  Expanded(child: Text('يجب تسجيل الدخول أولاً لإتمام الطلب')),
                 ],
               ),
-              backgroundColor: Colors.orange,
-              duration: Duration(seconds: 3),
+              backgroundColor: Colors.orange.shade700,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           );
-          
           await Future.delayed(const Duration(milliseconds: 500));
-          
-          if (mounted) {
-            context.go('/auth/customer/login');
-          }
+          if (mounted) context.go('/auth/customer/login');
         }
         return;
       }
-      
-      // ملء البيانات من المستخدم المسجل دخول
-      if (auth.isAuthenticated && auth.user != null) {
-        // جلب البيانات المحدثة من API
+
+      // Load user data
+      if (auth.user != null) {
         try {
           final userData = await ApiService.I.me();
           final u = userData['user'] as Map<String, dynamic>?;
           if (u != null) {
-            _name.text = (u['name'] ?? '').toString().trim();
-            _email.text = (u['email'] ?? '').toString().trim();
-            final phoneValue = u['phone'];
-            _phone.text = (phoneValue != null && phoneValue.toString().trim().isNotEmpty) 
-                ? phoneValue.toString().trim() 
-                : '';
+            _nameController.text = (u['name'] ?? '').toString().trim();
+            _emailController.text = (u['email'] ?? '').toString().trim();
+            _phoneController.text = (u['phone'] ?? '').toString().trim();
           }
         } catch (e) {
-          print('⚠️ [Checkout] فشل جلب البيانات من API، استخدام البيانات المحفوظة: $e');
-          _name.text = auth.user!.name;
-          _email.text = auth.user!.email;
-          final phoneValue = auth.user!.phone;
-          _phone.text = (phoneValue != null && phoneValue.trim().isNotEmpty) 
-              ? phoneValue.trim() 
-              : '';
+          _nameController.text = auth.user!.name;
+          _emailController.text = auth.user!.email;
+          _phoneController.text = auth.user!.phone ?? '';
         }
-        
-        print('✅ [Checkout] تم تعبئة البيانات من المستخدم:');
-        print('   الاسم: ${_name.text}');
-        print('   البريد: ${_email.text}');
-        print('   الهاتف: ${_phone.text}');
-      } else {
-        print('⚠️ [Checkout] المستخدم غير مسجل دخول');
       }
-      
-      // جلب المحافظات
+
+      // Load governorates
       try {
         final govs = await ApiService.I.getGovernorates();
-        // التأكد من عدم وجود تكرار في الأسماء
         final uniqueGovs = <String, Map<String, dynamic>>{};
         for (var gov in govs) {
           final name = gov['name_ar'] as String?;
@@ -133,318 +137,42 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           }
         }
         _governorates = uniqueGovs.values.toList();
-        print('✅ [Checkout] تم جلب ${_governorates.length} محافظة فريدة');
       } catch (e) {
-        print('❌ [Checkout] فشل جلب المحافظات: $e');
+        debugPrint('Error loading governorates: $e');
       }
-      
-      // جلب العناوين المحفوظة
+
+      // Load saved addresses
       try {
         final addresses = await ApiService.I.getAddresses();
         _savedAddresses = addresses.map((a) => AddressModel.fromApi(a)).toList();
-        
-        // اختيار العنوان الافتراضي تلقائياً
+
         if (_savedAddresses.isNotEmpty) {
-          final defaultAddresses = _savedAddresses.where((a) => a.isDefault).toList();
-          _selectedAddress = defaultAddresses.isNotEmpty 
-              ? defaultAddresses.first 
-              : _savedAddresses.first;
-          
-          _selectedGovernorate = _selectedAddress!.governorate;
-          _selectedCity = _selectedAddress!.city;
-          _address.text = _selectedAddress!.address;
-
-          // فلترة أولية للقيم غير الصالحة
-          if (_selectedCity == 'Voluptate velit exer.') {
-            print('⚠️ [Checkout] تم العثور على قيمة مدينة غير صالحة، سيتم تجاهلها.');
-            _selectedCity = null;
-          }
-
-          // التحقق من أن المحافظة المحددة موجودة في القائمة
-          if (_selectedGovernorate != null && !_governorates.any((g) => g['name_ar'] == _selectedGovernorate)) {
-            print('⚠️ [Checkout] المحافظة المحفوظة "$_selectedGovernorate" غير موجودة في القائمة، سيتم إعادة تعيينها');
-            _selectedGovernorate = null;
-            _selectedCity = null; // Reset city as well
-          }
-          
-          // جلب المدن للمحافظة المحددة
-          if (_selectedGovernorate != null) {
-            final gov = _governorates.firstWhere(
-              (g) => g['name_ar'] == _selectedGovernorate,
-              orElse: () => <String, dynamic>{},
-            );
-            if (gov.isNotEmpty) {
-              _selectedGovernorateId = (gov['id'] as num?)?.toInt();
-              await _loadCities();
-            }
-          }
-          
-          print('✅ [Checkout] تم تحديد العنوان الافتراضي: ${_selectedAddress!.label}');
+          final defaultAddr = _savedAddresses.where((a) => a.isDefault).toList();
+          _selectedAddress =
+              defaultAddr.isNotEmpty ? defaultAddr.first : _savedAddresses.first;
+          _selectAddress(_selectedAddress!);
         }
-        
-        print('✅ [Checkout] تم جلب ${_savedAddresses.length} عنوان محفوظ');
       } catch (e) {
-        print('⚠️ [Checkout] لا توجد عناوين محفوظة: $e');
-      }
-
-      // طرق الدفع يتم تحميلها عبر PaymentProvider في initState
-    } catch (e) {
-      print('❌ [Checkout] خطأ في جلب البيانات: $e');
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-  
-  Future<void> _loadCities() async {
-    if (_selectedGovernorateId == null) return;
-
-    setState(() => _isLoadingCities = true);
-
-    try {
-      final citiesFromApi = await ApiService.I.getCities(governorateId: _selectedGovernorateId);
-      // التأكد من عدم وجود تكرار في الأسماء
-      final uniqueCities = <String, Map<String, dynamic>>{};
-      for (var city in citiesFromApi) {
-        final name = city['name_ar'] as String?;
-        if (name != null && !uniqueCities.containsKey(name)) {
-          uniqueCities[name] = city;
-        }
-      }
-      _cities = uniqueCities.values.toList();
-
-      // التحقق من أن المدينة المحددة لا تزال موجودة
-      if (_selectedCity != null && !_cities.any((c) => c['name_ar'] == _selectedCity)) {
-        print('⚠️ [Checkout] المدينة المحفوظة "$_selectedCity" غير موجودة في القائمة، سيتم إعادة تعيينها');
-        _selectedCity = null;
-      }
-
-      print('✅ [Checkout] تم جلب ${_cities.length} مدينة فريدة للمحافظة $_selectedGovernorate');
-    } catch (e) {
-      print('❌ [Checkout] فشل جلب المدن: $e');
-      _cities = [];
-      _selectedCity = null;
-    } finally {
-      if (mounted) setState(() => _isLoadingCities = false);
-    }
-  }
-
-  @override
-  void dispose() {
-    _name.dispose();
-    _email.dispose();
-    _phone.dispose();
-    _address.dispose();
-    _notes.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    print('📤 [Checkout] محاولة إرسال الطلب...');
-
-    if (!_formKey.currentState!.validate()) {
-      print('⚠️ [Checkout] فشل التحقق من صحة النموذج');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('يرجى تعبئة جميع الحقول المطلوبة'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    setState(() => _submitting = true);
-
-    try {
-      print('🚀 [Checkout] إرسال البيانات إلى API...');
-      print('   الاسم: ${_name.text}');
-      print('   البريد: ${_email.text}');
-      print('   الهاتف: ${_phone.text}');
-      print('   المحافظة: $_selectedGovernorate');
-      print('   المدينة: $_selectedCity');
-      print('   العنوان: ${_address.text}');
-      print('   طريقة الدفع: $_paymentMethod');
-
-      // تحديد طريقة الدفع للـ API
-      final apiPaymentMethod = _paymentMethod == 'myfatoorah' ? 'myfatoorah' : 'cash';
-
-      final res = await ApiService.I.checkout(
-        name: _name.text,
-        email: _email.text,
-        phone: _phone.text,
-        deliveryAddress: _address.text,
-        deliveryCity: _selectedCity ?? '',
-        deliveryGovernorate: _selectedGovernorate ?? '',
-        deliveryNotes: _notes.text.isNotEmpty ? _notes.text : null,
-        deliveryType: _deliveryType,
-        paymentMethod: apiPaymentMethod,
-      );
-
-      print('✅ [Checkout] تم إنشاء الطلب بنجاح!');
-
-      if (!mounted) return;
-
-      // استخراج معلومات الطلب
-      final orders = res['orders'] as List?;
-      final firstOrder = orders?.isNotEmpty == true ? orders!.first : null;
-      final orderId = firstOrder?['id'] as int?;
-      final orderNumber = firstOrder?['order_number'] as String?;
-
-      // إذا كانت طريقة الدفع MyFatoorah، ننتقل للدفع الإلكتروني
-      if (_paymentMethod == 'myfatoorah' && orderId != null) {
-        await _processMyFatoorahPayment(orderId, orderNumber);
-      } else {
-        // الدفع عند الاستلام - تحديث السلة والانتقال لصفحة النجاح
-        context.read<CartProvider>().refresh();
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Row(
-              children: [
-                Icon(Icons.check_circle, color: Colors.white),
-                SizedBox(width: 12),
-                Text('تم إنشاء الطلب بنجاح'),
-              ],
-            ),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 3),
-          ),
-        );
-
-        if (orderNumber != null) {
-          print('🔢 [Checkout] رقم الطلب: $orderNumber');
-          // استخدام go بدلاً من push لإزالة صفحة Checkout من سجل التنقل
-          context.go('/order-track/$orderNumber');
-        } else {
-          context.go('/home');
-        }
+        debugPrint('No saved addresses: $e');
       }
     } catch (e) {
-      print('❌ [Checkout] فشل إنشاء الطلب: $e');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.error_outline, color: Colors.white),
-              const SizedBox(width: 12),
-              Expanded(child: Text('فشل إنشاء الطلب: $e')),
-            ],
-          ),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 4),
-        ),
-      );
+      debugPrint('Error loading data: $e');
     } finally {
-      if (mounted) setState(() => _submitting = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+        _fadeController.forward();
+      }
     }
-  }
-
-  /// معالجة الدفع عبر MyFatoorah
-  Future<void> _processMyFatoorahPayment(int orderId, String? orderNumber) async {
-    print('💳 [Checkout] بدء عملية الدفع عبر MyFatoorah للطلب: $orderId');
-
-    final paymentProvider = context.read<PaymentProvider>();
-
-    final state = await paymentProvider.executeMyFatoorahPayment(
-      orderId: orderId,
-      customerName: _name.text,
-      customerEmail: _email.text,
-      customerPhone: _phone.text,
-    );
-
-    if (!mounted) return;
-
-    if (state.paymentUrl != null) {
-      print('✅ [Checkout] تم الحصول على رابط الدفع');
-      print('   URL: ${state.paymentUrl}');
-      print('   Transaction ID: ${state.transactionId}');
-
-      // الانتقال لصفحة WebView للدفع
-      context.push(
-        '/payment/webview'
-        '?url=${Uri.encodeComponent(state.paymentUrl!)}'
-        '&orderId=$orderId'
-        '&tx=${state.transactionId ?? 0}',
-      );
-    } else if (state.errorMessage != null) {
-      print('❌ [Checkout] فشل الدفع: ${state.errorMessage}');
-      _showPaymentErrorDialog(state.errorMessage!, orderNumber);
-    }
-  }
-
-  /// عرض dialog خطأ الدفع مع خيارات
-  void _showPaymentErrorDialog(String message, String? orderNumber) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.error_outline, color: Colors.red),
-            SizedBox(width: 8),
-            Text('خطأ في الدفع'),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(message),
-            const SizedBox(height: 16),
-            const Text(
-              'تم حفظ طلبك. يمكنك المحاولة مرة أخرى أو اختيار الدفع عند الاستلام.',
-              style: TextStyle(fontSize: 13, color: Colors.grey),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // تغيير طريقة الدفع للدفع عند الاستلام
-              this.context.read<PaymentProvider>().selectPaymentMethod('cash');
-              setState(() => _paymentMethod = 'cash');
-            },
-            child: const Text('الدفع عند الاستلام'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              // محاولة الدفع مرة أخرى
-              if (orderNumber != null) {
-                // TODO: إعادة محاولة الدفع
-              }
-            },
-            child: const Text('إعادة المحاولة'),
-          ),
-        ],
-      ),
-    );
   }
 
   void _selectAddress(AddressModel address) async {
-    print('📍 [Checkout] تحديد العنوان: ${address.label}');
     setState(() {
       _selectedAddress = address;
       _selectedGovernorate = address.governorate;
       _selectedCity = address.city;
-      _address.text = address.address;
-
-      // فلترة أولية للقيم غير الصالحة
-      if (_selectedCity == 'Voluptate velit exer.') {
-        print('⚠️ [Checkout] تم العثور على قيمة مدينة غير صالحة، سيتم تجاهلها.');
-        _selectedCity = null;
-      }
-
-      // التحقق من أن المحافظة المحددة موجودة في القائمة
-      if (_selectedGovernorate != null && !_governorates.any((g) => g['name_ar'] == _selectedGovernorate)) {
-        print('⚠️ [Checkout] المحافظة المحددة "$_selectedGovernorate" غير موجودة في القائمة، سيتم إعادة تعيينها');
-        _selectedGovernorate = null;
-        _selectedCity = null; // Reset city as well
-      }
+      _addressController.text = address.address;
     });
-    
-    // جلب المدن للمحافظة المحددة
+
     if (_selectedGovernorate != null) {
       final gov = _governorates.firstWhere(
         (g) => g['name_ar'] == _selectedGovernorate,
@@ -457,800 +185,1225 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
   }
 
+  Future<void> _loadCities() async {
+    if (_selectedGovernorateId == null) return;
+    setState(() => _isLoadingCities = true);
+
+    try {
+      final cities = await ApiService.I.getCities(governorateId: _selectedGovernorateId!);
+      final uniqueCities = <String, Map<String, dynamic>>{};
+      for (var city in cities) {
+        final name = city['name_ar'] as String?;
+        if (name != null && !uniqueCities.containsKey(name)) {
+          uniqueCities[name] = city;
+        }
+      }
+      _cities = uniqueCities.values.toList();
+    } catch (e) {
+      debugPrint('Error loading cities: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingCities = false);
+    }
+  }
+
+  bool _validateCurrentStep() {
+    switch (_currentStep) {
+      case 0: // معلومات العميل
+        return _nameController.text.trim().isNotEmpty &&
+            _emailController.text.trim().isNotEmpty &&
+            _emailController.text.contains('@') &&
+            _phoneController.text.trim().isNotEmpty;
+      case 1: // عنوان التوصيل
+        return _selectedGovernorate != null &&
+            _selectedCity != null &&
+            _addressController.text.trim().isNotEmpty;
+      case 2: // طريقة الدفع
+        return true; // Always valid - default is cash
+      default:
+        return true;
+    }
+  }
+
+  void _nextStep() {
+    if (_validateCurrentStep()) {
+      HapticFeedback.selectionClick();
+      if (_currentStep < 3) {
+        setState(() => _currentStep++);
+      }
+    } else {
+      HapticFeedback.heavyImpact();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: Colors.white),
+              SizedBox(width: 12),
+              Text('يرجى إكمال جميع الحقول المطلوبة'),
+            ],
+          ),
+          backgroundColor: Colors.orange.shade700,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    }
+  }
+
+  void _previousStep() {
+    HapticFeedback.selectionClick();
+    if (_currentStep > 0) {
+      setState(() => _currentStep--);
+    }
+  }
+
+  Future<void> _submitOrder() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _submitting = true);
+    HapticFeedback.mediumImpact();
+
+    try {
+      final paymentProvider = context.read<PaymentProvider>();
+      final apiPaymentMethod =
+          paymentProvider.selectedMethod == 'myfatoorah' ? 'myfatoorah' : 'cash';
+
+      final res = await ApiService.I.checkout(
+        name: _nameController.text,
+        email: _emailController.text,
+        phone: _phoneController.text,
+        deliveryAddress: _addressController.text,
+        deliveryCity: _selectedCity ?? '',
+        deliveryGovernorate: _selectedGovernorate ?? '',
+        deliveryNotes:
+            _notesController.text.isNotEmpty ? _notesController.text : null,
+        deliveryType: _deliveryType,
+        paymentMethod: apiPaymentMethod,
+      );
+
+      if (!mounted) return;
+
+      final orders = res['orders'] as List?;
+      final firstOrder = orders?.isNotEmpty == true ? orders!.first : null;
+      final orderId = firstOrder?['id'] as int?;
+      final orderNumber = firstOrder?['order_number'] as String?;
+
+      if (apiPaymentMethod == 'myfatoorah' && orderId != null) {
+        await _processMyFatoorahPayment(orderId, orderNumber);
+      } else {
+        context.read<CartProvider>().refresh();
+        _showSuccessAndNavigate(orderNumber);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white),
+              const SizedBox(width: 12),
+              Expanded(child: Text('فشل إنشاء الطلب: $e')),
+            ],
+          ),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<void> _processMyFatoorahPayment(int orderId, String? orderNumber) async {
+    final paymentProvider = context.read<PaymentProvider>();
+
+    final result = await paymentProvider.executeMyFatoorahPayment(
+      orderId: orderId,
+      customerName: _nameController.text,
+      customerEmail: _emailController.text,
+      customerPhone: _phoneController.text,
+    );
+
+    if (!mounted) return;
+
+    if (result.isReady && result.paymentUrl != null) {
+      final encodedUrl = Uri.encodeComponent(result.paymentUrl!);
+      final tx = result.transactionId ?? 0;
+      context.push('/payment/webview?url=$encodedUrl&orderId=$orderId&tx=$tx');
+    } else {
+      _showPaymentErrorDialog(result.errorMessage, orderNumber);
+    }
+  }
+
+  void _showPaymentErrorDialog(String? errorMessage, String? orderNumber) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade50,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700),
+            ),
+            const SizedBox(width: 12),
+            const Text('تعذّر الدفع الإلكتروني'),
+          ],
+        ),
+        content: Text(errorMessage ?? 'حدث خطأ في بوابة الدفع'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              context.read<PaymentProvider>().selectPaymentMethod('cash');
+            },
+            child: const Text('الدفع عند الاستلام'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إعادة المحاولة'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSuccessAndNavigate(String? orderNumber) {
+    HapticFeedback.heavyImpact();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.white),
+            SizedBox(width: 12),
+            Text('تم إنشاء الطلب بنجاح'),
+          ],
+        ),
+        backgroundColor: Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+
+    if (orderNumber != null) {
+      context.go('/order-track/$orderNumber');
+    } else {
+      context.go('/home');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
     final cart = context.watch<CartProvider>();
-    
+
     return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            Icon(
-              Icons.shopping_cart_checkout,
-              color: Colors.white,
-              size: 24,
-            ),
-            const SizedBox(width: 12),
-            const Text(
-              'إتمام الطلب',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: colorScheme.primary,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.white),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      drawer: const AppDrawer(),
+      backgroundColor: isDark ? const Color(0xFF121212) : Colors.grey[50],
+      appBar: _buildAppBar(colorScheme),
       body: _isLoading
-          ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text('جارِ تحميل البيانات...'),
-                ],
-              ),
-            )
-          : Form(
-              key: _formKey,
-              child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-                children: [
-                  // رسالة ترحيبية
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          colorScheme.primaryContainer,
-                          colorScheme.primaryContainer.withOpacity(0.5),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: colorScheme.primary,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.shopping_cart_checkout,
-                            color: Colors.white,
-                            size: 24,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'أوشكت على إتمام طلبك!',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                'املأ البيانات التالية لإكمال الطلب',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: isDark ? Colors.grey[400] : Colors.grey[700],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 32),
-                  
-                  // معلومات العميل
-                  _buildSectionHeader(
-                    icon: Icons.person_outline,
-                    title: 'معلومات العميل',
-                    colorScheme: colorScheme,
-                  ),
-                  const SizedBox(height: 20),
-                  
-                  _buildTextField(
-                    controller: _name,
-                    label: 'الاسم الكامل',
-                    icon: Icons.person,
-                    validator: (v) => v?.isEmpty ?? true ? 'الرجاء إدخال الاسم' : null,
-                  ),
-                  const SizedBox(height: 20),
-                  
-                  _buildTextField(
-                    controller: _email,
-                    label: 'البريد الإلكتروني',
-                    icon: Icons.email,
-                    keyboardType: TextInputType.emailAddress,
-                    validator: (v) {
-                      if (v?.isEmpty ?? true) return 'الرجاء إدخال البريد الإلكتروني';
-                      if (!v!.contains('@')) return 'البريد الإلكتروني غير صحيح';
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  
-                  _buildTextField(
-                    controller: _phone,
-                    label: 'رقم الهاتف',
-                    icon: Icons.phone,
-                    keyboardType: TextInputType.phone,
-                    validator: (v) => v?.isEmpty ?? true ? 'الرجاء إدخال رقم الهاتف' : null,
-                  ),
-                  
-                  const SizedBox(height: 40),
-                  
-                  // العناوين المحفوظة
-                  if (_savedAddresses.isNotEmpty) ...[
-                    _buildSectionHeader(
-                      icon: Icons.location_on_outlined,
-                      title: 'اختر عنواناً محفوظاً',
+          ? _buildLoadingState(colorScheme)
+          : FadeTransition(
+              opacity: _fadeAnimation,
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  children: [
+                    // Progress Indicator
+                    _CheckoutProgress(
+                      currentStep: _currentStep,
                       colorScheme: colorScheme,
+                      isDark: isDark,
                     ),
-                    const SizedBox(height: 16),
-                    
-                    SizedBox(
-                      height: 110,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: _savedAddresses.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 16),
-                        itemBuilder: (_, i) {
-                          final addr = _savedAddresses[i];
-                          final isSelected = _selectedAddress?.id == addr.id;
-                          
-                          return InkWell(
-                            onTap: () => _selectAddress(addr),
-                            borderRadius: BorderRadius.circular(16),
-                            child: Container(
-                              width: 220,
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? colorScheme.primaryContainer
-                                    : isDark ? const Color(0xFF2C2C2C) : Colors.grey[50],
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: isSelected
-                                      ? colorScheme.primary
-                                      : isDark ? Colors.grey[700]! : Colors.grey[300]!,
-                                  width: isSelected ? 2.5 : 1.5,
-                                ),
-                                boxShadow: isSelected
-                                    ? [
-                                        BoxShadow(
-                                          color: colorScheme.primary.withOpacity(0.2),
-                                          blurRadius: 8,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ]
-                                    : null,
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        Icons.location_on,
-                                        size: 16,
-                                        color: isSelected
-                                            ? colorScheme.primary
-                                            : isDark ? Colors.grey[400] : Colors.grey[600],
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Expanded(
-                                        child: Text(
-                                          addr.label,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            color: isSelected
-                                                ? colorScheme.primary
-                                                : isDark ? Colors.white : Colors.black87,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      if (addr.isDefault)
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 6,
-                                            vertical: 2,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: colorScheme.primary,
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                          child: const Text(
-                                            'افتراضي',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 10,
-                                            ),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    addr.address,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: isDark ? Colors.grey[400] : Colors.grey[700],
-                                    ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
+
+                    // Step Content
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(20),
+                        child: _buildStepContent(colorScheme, isDark, cart),
                       ),
                     ),
-                    
-                    const SizedBox(height: 32),
+
+                    // Bottom Actions
+                    _buildBottomActions(colorScheme, isDark, cart),
                   ],
-                  
-                  // عنوان التوصيل
-                  _buildSectionHeader(
-                    icon: Icons.local_shipping_outlined,
-                    title: 'عنوان التوصيل',
-                    colorScheme: colorScheme,
-                  ),
-                  const SizedBox(height: 20),
-                  
-                  // المحافظة (Dropdown)
-                  DropdownButtonFormField<String>(
-                    value: _selectedGovernorate,
-                    dropdownColor: isDark ? const Color(0xFF2C2C2C) : Colors.white,
-                    style: TextStyle(
-                      color: isDark ? Colors.white : Colors.black87,
-                      fontSize: 15,
-                    ),
-                    decoration: InputDecoration(
-                      labelText: 'المحافظة',
-                      labelStyle: TextStyle(
-                        color: isDark ? Colors.grey[400] : Colors.grey[700],
-                      ),
-                      prefixIcon: Icon(
-                        Icons.map,
-                        color: isDark ? Colors.grey[400] : Colors.grey[600],
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: isDark ? Colors.grey[700]! : Colors.grey[300]!,
-                        ),
-                      ),
-                      filled: true,
-                      fillColor: isDark ? const Color(0xFF2C2C2C) : Colors.grey[50],
-                    ),
-                    hint: const Text('اختر المحافظة'),
-                    isExpanded: true,
-                    items: _governorates.map((gov) {
-                      return DropdownMenuItem<String>(
-                        value: gov['name_ar'] as String?,
-                        child: Text(gov['name_ar'] as String? ?? ''),
-                      );
-                    }).toList(),
-                    onChanged: (value) async {
-                      if (value == null) return;
-
-                      final selectedGov = _governorates.firstWhere(
-                        (g) => g['name_ar'] == value,
-                        orElse: () => <String, dynamic>{},
-                      );
-
-                      if (selectedGov.isNotEmpty) {
-                        setState(() {
-                          _selectedGovernorate = value;
-                          _selectedGovernorateId = (selectedGov['id'] as num?)?.toInt();
-                          _selectedCity = null; // Reset city
-                          _cities = [];
-                        });
-
-                        if (_selectedGovernorateId != null) {
-                          await _loadCities();
-                        }
-                      }
-                    },
-                    validator: (v) => v == null || v.isEmpty ? 'الرجاء اختيار المحافظة' : null,
-                  ),
-                  const SizedBox(height: 20),
-                  
-                  // المدينة (Dropdown)
-                  DropdownButtonFormField<String>(
-                    value: _selectedCity,
-                    dropdownColor: isDark ? const Color(0xFF2C2C2C) : Colors.white,
-                    style: TextStyle(
-                      color: isDark ? Colors.white : Colors.black87,
-                      fontSize: 15,
-                    ),
-                    decoration: InputDecoration(
-                      labelText: 'المدينة',
-                      labelStyle: TextStyle(
-                        color: isDark ? Colors.grey[400] : Colors.grey[700],
-                      ),
-                      prefixIcon: Icon(
-                        Icons.location_city,
-                        color: isDark ? Colors.grey[400] : Colors.grey[600],
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: isDark ? Colors.grey[700]! : Colors.grey[300]!,
-                        ),
-                      ),
-                      filled: true,
-                      fillColor: isDark ? const Color(0xFF2C2C2C) : Colors.grey[50],
-                      suffixIcon: _isLoadingCities
-                          ? const Padding(
-                              padding: EdgeInsets.all(12),
-                              child: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              ),
-                            )
-                          : null,
-                    ),
-                    hint: Text(
-                      _selectedGovernorate == null
-                          ? 'اختر المحافظة أولاً'
-                          : 'اختر المدينة',
-                    ),
-                    isExpanded: true,
-                    items: _cities.map((city) {
-                      return DropdownMenuItem<String>(
-                        value: city['name_ar'] as String?,
-                        child: Text(city['name_ar'] as String? ?? ''),
-                      );
-                    }).toList(),
-                    onChanged: _selectedGovernorate == null || _isLoadingCities
-                        ? null
-                        : (value) {
-                            setState(() {
-                              _selectedCity = value;
-                            });
-                          },
-                    validator: (v) => v == null || v.isEmpty ? 'الرجاء اختيار المدينة' : null,
-                  ),
-                  const SizedBox(height: 20),
-                  
-                  _buildTextField(
-                    controller: _address,
-                    label: 'العنوان التفصيلي',
-                    icon: Icons.home,
-                    maxLines: 3,
-                    validator: (v) => v?.isEmpty ?? true ? 'الرجاء إدخال العنوان' : null,
-                  ),
-                  const SizedBox(height: 20),
-                  
-                  _buildTextField(
-                    controller: _notes,
-                    label: 'ملاحظات إضافية (اختياري)',
-                    icon: Icons.note,
-                    maxLines: 2,
-                  ),
-                  
-                  const SizedBox(height: 40),
-                  
-                  // نوع التوصيل
-                  _buildSectionHeader(
-                    icon: Icons.delivery_dining,
-                    title: 'نوع التوصيل',
-                    colorScheme: colorScheme,
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: isDark ? const Color(0xFF2C2C2C) : Colors.grey[50],
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: isDark ? Colors.grey[700]! : Colors.grey[300]!),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: InkWell(
-                            onTap: () => setState(() => _deliveryType = 'immediate'),
-                            borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              decoration: BoxDecoration(
-                                color: _deliveryType == 'immediate'
-                                    ? colorScheme.primary
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Column(
-                                children: [
-                                  Icon(
-                                    Icons.electric_bolt,
-                                    color: _deliveryType == 'immediate'
-                                        ? Colors.white
-                                        : isDark ? Colors.grey[400] : Colors.grey[700],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'توصيل فوري',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: _deliveryType == 'immediate'
-                                          ? Colors.white
-                                          : isDark ? Colors.white : Colors.grey[700],
-                                    ),
-                                  ),
-                                  Text(
-                                    'خلال ساعتين',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: _deliveryType == 'immediate'
-                                          ? Colors.white70
-                                          : isDark ? Colors.grey[500] : Colors.grey[600],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: InkWell(
-                            onTap: () => setState(() => _deliveryType = 'scheduled'),
-                            borderRadius: BorderRadius.circular(12),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              decoration: BoxDecoration(
-                                color: _deliveryType == 'scheduled'
-                                    ? colorScheme.primary
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Column(
-                                children: [
-                                  Icon(
-                                    Icons.schedule,
-                                    color: _deliveryType == 'scheduled'
-                                        ? Colors.white
-                                        : isDark ? Colors.grey[400] : Colors.grey[700],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'موعد محدد',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: _deliveryType == 'scheduled'
-                                          ? Colors.white
-                                          : isDark ? Colors.white : Colors.grey[700],
-                                    ),
-                                  ),
-                                  Text(
-                                    'حدد الوقت',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: _deliveryType == 'scheduled'
-                                          ? Colors.white70
-                                          : isDark ? Colors.grey[500] : Colors.grey[600],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 32),
-                  
-                  // طريقة الدفع
-                  _buildSectionHeader(
-                    icon: Icons.payment,
-                    title: 'طريقة الدفع',
-                    colorScheme: colorScheme,
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  PaymentMethodsWidget(
-                    onMethodChanged: (method) {
-                      setState(() => _paymentMethod = method);
-                    },
-                  ),
-                  
-                  const SizedBox(height: 32),
-                  
-                  // ملخص الطلب
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          colorScheme.primaryContainer.withOpacity(0.4),
-                          colorScheme.primaryContainer.withOpacity(0.2),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: colorScheme.primary.withOpacity(0.3),
-                        width: 2,
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: colorScheme.primary.withOpacity(0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: colorScheme.primary,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.receipt_long,
-                                color: Colors.white,
-                                size: 22,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            const Text(
-                              'ملخص الطلب',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? Colors.black.withOpacity(0.3)
-                                : Colors.white.withOpacity(0.7),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        Icons.shopping_bag_outlined,
-                                        size: 18,
-                                        color: isDark ? Colors.grey[400] : Colors.grey[700],
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        'عدد المنتجات:',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: isDark ? Colors.grey[400] : Colors.grey[700],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  Text(
-                                    '${cart.items.length} منتج',
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.w600,
-                                      color: isDark ? Colors.white : Colors.black87,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              Divider(color: isDark ? Colors.grey[700] : Colors.grey[300]),
-                              const SizedBox(height: 12),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'الإجمالي:',
-                                    style: TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                      color: isDark ? Colors.white : Colors.black87,
-                                    ),
-                                  ),
-                                  Text(
-                                    '${cart.subtotal.toStringAsFixed(2)} د.ع',
-                                    style: TextStyle(
-                                      fontSize: 26,
-                                      fontWeight: FontWeight.bold,
-                                      color: colorScheme.primary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 32),
-                  
-                  // زر إتمام الطلب
-                  SizedBox(
-                    height: 56,
-                    child: ElevatedButton(
-                      onPressed: _submitting ? null : _submit,
-                      style: ElevatedButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: _submitting
-                          ? const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                SizedBox(width: 12),
-                                Text('جارٍ الإرسال...'),
-                              ],
-                            )
-                          : const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.check_circle_outline),
-                                SizedBox(width: 12),
-                                Text(
-                                  'تأكيد الطلب',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 16),
-                ],
+                ),
               ),
             ),
     );
   }
 
-  Widget _buildSectionHeader({
-    required IconData icon,
-    required String title,
-    required ColorScheme colorScheme,
-  }) {
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(8),
+  PreferredSizeWidget _buildAppBar(ColorScheme colorScheme) {
+    return AppBar(
+      title: const Text(
+        'إتمام الطلب',
+        style: TextStyle(fontWeight: FontWeight.bold),
+      ),
+      centerTitle: true,
+      backgroundColor: colorScheme.primary,
+      foregroundColor: Colors.white,
+      elevation: 0,
+    );
+  }
+
+  Widget _buildLoadingState(ColorScheme colorScheme) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 60,
+            height: 60,
+            child: CircularProgressIndicator(
+              strokeWidth: 3,
+              valueColor: AlwaysStoppedAnimation(colorScheme.primary),
+            ),
           ),
-          child: Icon(icon, color: colorScheme.primary, size: 20),
-        ),
-        const SizedBox(width: 12),
-        Text(
-          title,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
+          const SizedBox(height: 24),
+          Text(
+            'جارٍ تحميل البيانات...',
+            style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStepContent(
+    ColorScheme colorScheme,
+    bool isDark,
+    CartProvider cart,
+  ) {
+    switch (_currentStep) {
+      case 0:
+        return _buildCustomerInfoStep(colorScheme, isDark);
+      case 1:
+        return _buildAddressStep(colorScheme, isDark);
+      case 2:
+        return _buildPaymentStep(colorScheme, isDark);
+      case 3:
+        return _buildReviewStep(colorScheme, isDark, cart);
+      default:
+        return const SizedBox();
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Step 1: Customer Info
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildCustomerInfoStep(ColorScheme colorScheme, bool isDark) {
+    return _StepCard(
+      title: 'معلومات العميل',
+      icon: Icons.person_rounded,
+      colorScheme: colorScheme,
+      isDark: isDark,
+      child: Column(
+        children: [
+          _buildTextField(
+            controller: _nameController,
+            label: 'الاسم الكامل',
+            icon: Icons.person_outline_rounded,
+            validator: (v) => v?.isEmpty ?? true ? 'الرجاء إدخال الاسم' : null,
+            isDark: isDark,
+          ),
+          const SizedBox(height: 16),
+          _buildTextField(
+            controller: _emailController,
+            label: 'البريد الإلكتروني',
+            icon: Icons.email_outlined,
+            keyboardType: TextInputType.emailAddress,
+            validator: (v) {
+              if (v?.isEmpty ?? true) return 'الرجاء إدخال البريد الإلكتروني';
+              if (!v!.contains('@')) return 'البريد الإلكتروني غير صحيح';
+              return null;
+            },
+            isDark: isDark,
+          ),
+          const SizedBox(height: 16),
+          _buildTextField(
+            controller: _phoneController,
+            label: 'رقم الهاتف',
+            icon: Icons.phone_outlined,
+            keyboardType: TextInputType.phone,
+            validator: (v) =>
+                v?.isEmpty ?? true ? 'الرجاء إدخال رقم الهاتف' : null,
+            isDark: isDark,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Step 2: Address
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildAddressStep(ColorScheme colorScheme, bool isDark) {
+    return Column(
+      children: [
+        // Saved Addresses
+        if (_savedAddresses.isNotEmpty) ...[
+          _StepCard(
+            title: 'العناوين المحفوظة',
+            icon: Icons.bookmark_rounded,
+            colorScheme: colorScheme,
+            isDark: isDark,
+            child: SizedBox(
+              height: 100,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _savedAddresses.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 12),
+                itemBuilder: (_, i) {
+                  final addr = _savedAddresses[i];
+                  final isSelected = _selectedAddress?.id == addr.id;
+                  return _SavedAddressCard(
+                    address: addr,
+                    isSelected: isSelected,
+                    colorScheme: colorScheme,
+                    isDark: isDark,
+                    onTap: () => _selectAddress(addr),
+                  );
+                },
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+
+        // Address Form
+        _StepCard(
+          title: 'عنوان التوصيل',
+          icon: Icons.location_on_rounded,
+          colorScheme: colorScheme,
+          isDark: isDark,
+          child: Column(
+            children: [
+              // Governorate
+              _buildDropdown(
+                value: _selectedGovernorate,
+                label: 'المحافظة',
+                icon: Icons.map_outlined,
+                items: _governorates
+                    .map((g) => g['name_ar'] as String? ?? '')
+                    .toList(),
+                onChanged: (value) async {
+                  final gov = _governorates.firstWhere(
+                    (g) => g['name_ar'] == value,
+                    orElse: () => <String, dynamic>{},
+                  );
+                  setState(() {
+                    _selectedGovernorate = value;
+                    _selectedGovernorateId = (gov['id'] as num?)?.toInt();
+                    _selectedCity = null;
+                    _cities = [];
+                  });
+                  if (_selectedGovernorateId != null) await _loadCities();
+                },
+                isDark: isDark,
+                colorScheme: colorScheme,
+              ),
+              const SizedBox(height: 16),
+
+              // City
+              _buildDropdown(
+                value: _selectedCity,
+                label: 'المدينة',
+                icon: Icons.location_city_outlined,
+                items:
+                    _cities.map((c) => c['name_ar'] as String? ?? '').toList(),
+                onChanged: (value) => setState(() => _selectedCity = value),
+                enabled: _selectedGovernorate != null && !_isLoadingCities,
+                isLoading: _isLoadingCities,
+                isDark: isDark,
+                colorScheme: colorScheme,
+              ),
+              const SizedBox(height: 16),
+
+              // Detailed Address
+              _buildTextField(
+                controller: _addressController,
+                label: 'العنوان التفصيلي',
+                icon: Icons.home_outlined,
+                maxLines: 2,
+                validator: (v) =>
+                    v?.isEmpty ?? true ? 'الرجاء إدخال العنوان' : null,
+                isDark: isDark,
+              ),
+              const SizedBox(height: 16),
+
+              // Notes
+              _buildTextField(
+                controller: _notesController,
+                label: 'ملاحظات إضافية (اختياري)',
+                icon: Icons.note_outlined,
+                maxLines: 2,
+                isDark: isDark,
+              ),
+            ],
           ),
         ),
       ],
     );
   }
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Step 3: Payment
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildPaymentStep(ColorScheme colorScheme, bool isDark) {
+    return Column(
+      children: [
+        // Delivery Type
+        _StepCard(
+          title: 'نوع التوصيل',
+          icon: Icons.local_shipping_rounded,
+          colorScheme: colorScheme,
+          isDark: isDark,
+          child: Row(
+            children: [
+              Expanded(
+                child: _DeliveryTypeOption(
+                  title: 'فوري',
+                  subtitle: 'توصيل سريع',
+                  icon: Icons.flash_on_rounded,
+                  isSelected: _deliveryType == 'immediate',
+                  colorScheme: colorScheme,
+                  isDark: isDark,
+                  onTap: () => setState(() => _deliveryType = 'immediate'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _DeliveryTypeOption(
+                  title: 'مجدول',
+                  subtitle: 'حدد موعداً',
+                  icon: Icons.schedule_rounded,
+                  isSelected: _deliveryType == 'scheduled',
+                  colorScheme: colorScheme,
+                  isDark: isDark,
+                  onTap: () => setState(() => _deliveryType = 'scheduled'),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Payment Methods
+        _StepCard(
+          title: 'طريقة الدفع',
+          icon: Icons.payment_rounded,
+          colorScheme: colorScheme,
+          isDark: isDark,
+          child: PaymentMethodsWidget(
+            onMethodChanged: (method) {
+              setState(() => _paymentMethod = method);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Step 4: Review
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildReviewStep(
+    ColorScheme colorScheme,
+    bool isDark,
+    CartProvider cart,
+  ) {
+    final subtotal = cart.subtotal;
+    final delivery = subtotal >= 10 ? 0.0 : 1.5;
+    final vat = subtotal * 0.15;
+    final total = subtotal + delivery + vat;
+
+    return Column(
+      children: [
+        // Order Summary
+        _StepCard(
+          title: 'ملخص الطلب',
+          icon: Icons.receipt_long_rounded,
+          colorScheme: colorScheme,
+          isDark: isDark,
+          child: Column(
+            children: [
+              ...cart.items.values.map((item) => _OrderItemRow(
+                    item: item,
+                    isDark: isDark,
+                  )),
+              const Divider(height: 24),
+              _PriceRow(label: 'المجموع الفرعي', value: subtotal, isDark: isDark),
+              const SizedBox(height: 8),
+              _PriceRow(
+                label: 'التوصيل',
+                value: delivery,
+                isFree: delivery == 0,
+                isDark: isDark,
+              ),
+              const SizedBox(height: 8),
+              _PriceRow(label: 'الضريبة (15%)', value: vat, isDark: isDark),
+              const Divider(height: 24),
+              _PriceRow(
+                label: 'الإجمالي',
+                value: total,
+                isTotal: true,
+                colorScheme: colorScheme,
+                isDark: isDark,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Delivery Info
+        _StepCard(
+          title: 'معلومات التوصيل',
+          icon: Icons.local_shipping_outlined,
+          colorScheme: colorScheme,
+          isDark: isDark,
+          child: Column(
+            children: [
+              _InfoRow(
+                icon: Icons.person_outline,
+                label: 'الاسم',
+                value: _nameController.text,
+                isDark: isDark,
+              ),
+              _InfoRow(
+                icon: Icons.phone_outlined,
+                label: 'الهاتف',
+                value: _phoneController.text,
+                isDark: isDark,
+              ),
+              _InfoRow(
+                icon: Icons.location_on_outlined,
+                label: 'العنوان',
+                value:
+                    '${_addressController.text}, $_selectedCity, $_selectedGovernorate',
+                isDark: isDark,
+              ),
+              _InfoRow(
+                icon: Icons.payment_outlined,
+                label: 'الدفع',
+                value: _paymentMethod == 'cash' ? 'عند الاستلام' : 'إلكتروني',
+                isDark: isDark,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Bottom Actions
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  Widget _buildBottomActions(
+    ColorScheme colorScheme,
+    bool isDark,
+    CartProvider cart,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 20,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Row(
+          children: [
+            // Back Button
+            if (_currentStep > 0)
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _previousStep,
+                  icon: const Icon(Icons.arrow_forward_rounded),
+                  label: const Text('السابق'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+            if (_currentStep > 0) const SizedBox(width: 12),
+
+            // Next/Submit Button
+            Expanded(
+              flex: 2,
+              child: FilledButton(
+                onPressed: _submitting
+                    ? null
+                    : (_currentStep < 3 ? _nextStep : _submitOrder),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: _submitting
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation(Colors.white),
+                        ),
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            _currentStep < 3 ? 'التالي' : 'تأكيد الطلب',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Icon(
+                            _currentStep < 3
+                                ? Icons.arrow_back_rounded
+                                : Icons.check_rounded,
+                            size: 20,
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Helper Widgets
+  // ═══════════════════════════════════════════════════════════════════════════
+
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,
     required IconData icon,
-    int maxLines = 1,
     TextInputType? keyboardType,
+    int maxLines = 1,
     String? Function(String?)? validator,
+    required bool isDark,
   }) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
     return TextFormField(
       controller: controller,
-      // تحديد لون النص صراحةً لضمان الوضوح
-      style: TextStyle(
-        color: isDark ? Colors.white : Colors.black87,
-        fontSize: 15,
-      ),
+      keyboardType: keyboardType,
+      maxLines: maxLines,
+      validator: validator,
       decoration: InputDecoration(
         labelText: label,
-        // لون التسمية
-        labelStyle: TextStyle(
-          color: isDark ? Colors.grey[400] : Colors.grey[700],
-        ),
-        // لون التسمية عند التركيز
-        floatingLabelStyle: TextStyle(
-          color: theme.colorScheme.primary,
-          fontWeight: FontWeight.w600,
-        ),
-        prefixIcon: Icon(
-          icon,
-          color: isDark ? Colors.grey[400] : Colors.grey[600],
-        ),
+        prefixIcon: Icon(icon),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(
-            color: isDark ? Colors.grey[700]! : Colors.grey[300]!,
+        filled: true,
+        fillColor: isDark ? const Color(0xFF2A2A2A) : Colors.grey[100],
+      ),
+    );
+  }
+
+  Widget _buildDropdown({
+    required String? value,
+    required String label,
+    required IconData icon,
+    required List<String> items,
+    required Function(String?) onChanged,
+    bool enabled = true,
+    bool isLoading = false,
+    required bool isDark,
+    required ColorScheme colorScheme,
+  }) {
+    return DropdownButtonFormField<String>(
+      value: items.contains(value) ? value : null,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+        suffixIcon: isLoading
+            ? const Padding(
+                padding: EdgeInsets.all(12),
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              )
+            : null,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+        ),
+        filled: true,
+        fillColor: isDark ? const Color(0xFF2A2A2A) : Colors.grey[100],
+      ),
+      items: items
+          .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+          .toList(),
+      onChanged: enabled ? onChanged : null,
+      validator: (v) => v == null ? 'الرجاء الاختيار' : null,
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Supporting Widgets
+// ═══════════════════════════════════════════════════════════════════════════════
+
+class _CheckoutProgress extends StatelessWidget {
+  final int currentStep;
+  final ColorScheme colorScheme;
+  final bool isDark;
+
+  const _CheckoutProgress({
+    required this.currentStep,
+    required this.colorScheme,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final steps = ['المعلومات', 'العنوان', 'الدفع', 'المراجعة'];
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+      color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+      child: Row(
+        children: List.generate(steps.length * 2 - 1, (index) {
+          if (index.isOdd) {
+            // Connector
+            final stepIndex = index ~/ 2;
+            final isCompleted = currentStep > stepIndex;
+            return Expanded(
+              child: Container(
+                height: 3,
+                color: isCompleted ? colorScheme.primary : Colors.grey[300],
+              ),
+            );
+          } else {
+            // Step
+            final stepIndex = index ~/ 2;
+            final isActive = currentStep == stepIndex;
+            final isCompleted = currentStep > stepIndex;
+
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: isCompleted || isActive
+                        ? colorScheme.primary
+                        : Colors.grey[300],
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: isCompleted
+                        ? const Icon(Icons.check, color: Colors.white, size: 18)
+                        : Text(
+                            '${stepIndex + 1}',
+                            style: TextStyle(
+                              color:
+                                  isActive ? Colors.white : Colors.grey[600],
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  steps[stepIndex],
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                    color: isActive ? colorScheme.primary : Colors.grey[600],
+                  ),
+                ),
+              ],
+            );
+          }
+        }),
+      ),
+    );
+  }
+}
+
+class _StepCard extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final Widget child;
+  final ColorScheme colorScheme;
+  final bool isDark;
+
+  const _StepCard({
+    required this.title,
+    required this.icon,
+    required this.child,
+    required this.colorScheme,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
           ),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(
-            color: theme.colorScheme.primary,
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: colorScheme.primary, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Divider(
+            height: 1,
+            color: isDark ? Colors.grey[800] : Colors.grey[200],
+          ),
+          // Content
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: child,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SavedAddressCard extends StatelessWidget {
+  final AddressModel address;
+  final bool isSelected;
+  final ColorScheme colorScheme;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  const _SavedAddressCard({
+    required this.address,
+    required this.isSelected,
+    required this.colorScheme,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        width: 180,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? colorScheme.primaryContainer
+              : (isDark ? const Color(0xFF2A2A2A) : Colors.grey[100]),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected ? colorScheme.primary : Colors.transparent,
             width: 2,
           ),
         ),
-        filled: true,
-        // لون الخلفية حسب الثيم
-        fillColor: isDark ? const Color(0xFF2C2C2C) : Colors.grey[50],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.location_on,
+                  size: 16,
+                  color: isSelected ? colorScheme.primary : Colors.grey[600],
+                ),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    address.label,
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: isSelected ? colorScheme.primary : null,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (address.isDefault)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colorScheme.primary,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Text(
+                      'افتراضي',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              address.address,
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
       ),
-      maxLines: maxLines,
-      keyboardType: keyboardType,
-      validator: validator,
+    );
+  }
+}
+
+class _DeliveryTypeOption extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final bool isSelected;
+  final ColorScheme colorScheme;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  const _DeliveryTypeOption({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.isSelected,
+    required this.colorScheme,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? colorScheme.primaryContainer
+              : (isDark ? const Color(0xFF2A2A2A) : Colors.grey[100]),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isSelected ? colorScheme.primary : Colors.transparent,
+            width: 2,
+          ),
+        ),
+        child: Column(
+          children: [
+            Icon(
+              icon,
+              size: 28,
+              color: isSelected ? colorScheme.primary : Colors.grey[600],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              title,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: isSelected ? colorScheme.primary : null,
+              ),
+            ),
+            Text(
+              subtitle,
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OrderItemRow extends StatelessWidget {
+  final CartItem item;
+  final bool isDark;
+
+  const _OrderItemRow({required this.item, required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.network(
+              item.product.image,
+              width: 50,
+              height: 50,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                width: 50,
+                height: 50,
+                color: Colors.grey[300],
+                child: const Icon(Icons.image_not_supported, size: 20),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.product.name,
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  'x${item.qty}',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            '${(item.product.price * item.qty).toStringAsFixed(2)} د.ع',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PriceRow extends StatelessWidget {
+  final String label;
+  final double value;
+  final bool isFree;
+  final bool isTotal;
+  final ColorScheme? colorScheme;
+  final bool isDark;
+
+  const _PriceRow({
+    required this.label,
+    required this.value,
+    this.isFree = false,
+    this.isTotal = false,
+    this.colorScheme,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: isTotal ? 16 : 14,
+            fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+            color: isDark ? Colors.white : Colors.grey[800],
+          ),
+        ),
+        Text(
+          isFree ? 'مجاني' : '${value.toStringAsFixed(2)} د.ع',
+          style: TextStyle(
+            fontSize: isTotal ? 18 : 14,
+            fontWeight: isTotal ? FontWeight.bold : FontWeight.w600,
+            color: isFree
+                ? Colors.green
+                : (isTotal ? colorScheme?.primary : null),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final bool isDark;
+
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: Colors.grey[600]),
+          const SizedBox(width: 12),
+          Text(
+            '$label: ',
+            style: TextStyle(color: Colors.grey[600]),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontWeight: FontWeight.w500),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -269,15 +269,15 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                         opacity: _fadeAnimation,
                         child: Column(
                           children: [
-                            // اسم التطبيق بالإنجليزية
+                            // اسم التطبيق بالعربية
                             ShaderMask(
                               shaderCallback: (bounds) => const LinearGradient(
                                 colors: [Colors.white, Color(0xFFF0FDF4)],
                               ).createShader(bounds),
                               child: Text(
-                                'Engeb',
+                                'إيليت وان',
                                 style: GoogleFonts.cairo(
-                                  fontSize: 56,
+                                  fontSize: 48,
                                   fontWeight: FontWeight.w900,
                                   color: Colors.white,
                                   letterSpacing: 2,
@@ -291,9 +291,22 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                                 ),
                               ),
                             ),
-                            
+
+                            const SizedBox(height: 8),
+
+                            // اسم التطبيق بالإنجليزية
+                            Text(
+                              'Elite One',
+                              style: GoogleFonts.cairo(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white.withOpacity(0.95),
+                                letterSpacing: 3,
+                              ),
+                            ),
+
                             const SizedBox(height: 12),
-                            
+
                             // الوصف
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
@@ -386,7 +399,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                   opacity: _fadeAnimation,
                   child: Center(
                     child: Text(
-                      '© 2025 Engeb. جميع الحقوق محفوظة',
+                      '© 2025 Elite One. جميع الحقوق محفوظة',
                       style: GoogleFonts.cairo(
                         fontSize: 13,
                         color: Colors.white.withOpacity(0.7),

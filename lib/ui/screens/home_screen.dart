@@ -18,7 +18,7 @@ class HomeScreen extends StatelessWidget {
     
     return Scaffold(
       appBar: const CommonAppBar(
-        title: 'Engeb',
+        title: 'إيليت وان',
         leadingIcon: Icons.store_rounded,
       ),
       drawer: const AppDrawer(),

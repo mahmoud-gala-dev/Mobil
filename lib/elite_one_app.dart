@@ -203,7 +203,7 @@ class EliteOneApp extends StatelessWidget {
       child: MaterialApp.router(
         debugShowCheckedModeBanner: false,
         routerConfig: router,
-        title: 'Engeb - متجرك الإلكتروني',
+        title: 'إيليت وان - Elite One',
         // استخدام الثيم الأصلي من AppTheme مع دعم الوضع المظلم
         theme: AppTheme.lightTheme(),
         darkTheme: AppTheme.darkTheme(),

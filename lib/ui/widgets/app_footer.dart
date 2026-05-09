@@ -127,7 +127,7 @@ class AppFooter extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             Text(
-              'Engeb',
+              'إيليت وان',
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
@@ -375,7 +375,7 @@ class AppFooter extends StatelessWidget {
       children: [
         Expanded(
           child: Text(
-            '© ${DateTime.now().year} Engeb. جميع الحقوق محفوظة.',
+            '© ${DateTime.now().year} Elite One. جميع الحقوق محفوظة.',
             style: TextStyle(
               fontSize: 12,
               color: Theme.of(context).textTheme.bodySmall?.color,

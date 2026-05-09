@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../../models/models.dart';
 import '../../state/favorites_provider.dart';
+import '../../state/app_settings_provider.dart';
 import '../../helpers/cart_helper.dart';
 import '../../services/sound_service.dart';
 import '../../services/toast_service.dart';
@@ -16,15 +17,16 @@ class ProductCard extends StatelessWidget {
     await CartHelper.addToCart(context, product);
   }
 
-  Future<void> _toggleFavorite(BuildContext context, FavoritesProvider favs) async {
+  Future<void> _toggleFavorite(
+      BuildContext context, FavoritesProvider favs) async {
     final isFav = favs.isFav(product.id);
-    
+
     // تبديل حالة المفضلة
     favs.toggle(product.id);
-    
+
     // تشغيل الصوت
     await SoundService().playAddToFavoriteSound();
-    
+
     // عرض رسالة التوست
     if (!isFav) {
       ToastService().showAddToFavorite(product.name);
@@ -33,10 +35,68 @@ class ProductCard extends StatelessWidget {
     }
   }
 
+  /// بناء صورة المنتج مع دعم الصورة الافتراضية الديناميكية
+  Widget _buildProductImage(BuildContext context, String defaultImageUrl) {
+    final imageUrl = product.image;
+
+    // إذا كانت صورة المنتج فارغة، استخدم الصورة الافتراضية
+    final displayUrl = (imageUrl.isEmpty) ? defaultImageUrl : imageUrl;
+
+    return Image.network(
+      displayUrl,
+      fit: BoxFit.cover,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return Container(
+          color: Colors.grey[200],
+          child: Center(
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              value: loadingProgress.expectedTotalBytes != null
+                  ? loadingProgress.cumulativeBytesLoaded /
+                      loadingProgress.expectedTotalBytes!
+                  : null,
+            ),
+          ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) {
+        // عند فشل تحميل صورة المنتج، حاول تحميل الصورة الافتراضية
+        if (displayUrl != defaultImageUrl && defaultImageUrl.isNotEmpty) {
+          return Image.network(
+            defaultImageUrl,
+            fit: BoxFit.cover,
+            errorBuilder: (ctx, err, st) => _buildPlaceholderIcon(),
+          );
+        }
+        return _buildPlaceholderIcon();
+      },
+    );
+  }
+
+  /// أيقونة placeholder عند فشل جميع الصور
+  Widget _buildPlaceholderIcon() {
+    return Container(
+      color: Colors.grey[200],
+      child: Center(
+        child: Icon(
+          Icons.shopping_bag_outlined,
+          size: 40,
+          color: Colors.grey[400],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final favs = context.watch<FavoritesProvider>();
+    final appSettings = context.watch<AppSettingsProvider>();
     final isFav = favs.isFav(product.id);
+
+    // الحصول على صورة المنتج الافتراضية من الإعدادات
+    final defaultImageUrl = appSettings.getDefaultProductImageUrl();
+
     return InkWell(
       onTap: () => context.push('/product/${product.id}'),
       child: Card(
@@ -54,31 +114,7 @@ class ProductCard extends StatelessWidget {
               child: Stack(
                 children: [
                   SizedBox.expand(
-                    child: Image.network(
-                      product.image, 
-                      fit: BoxFit.cover,
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Container(
-                          color: Colors.grey[200],
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              value: loadingProgress.expectedTotalBytes != null
-                                  ? loadingProgress.cumulativeBytesLoaded /
-                                      loadingProgress.expectedTotalBytes!
-                                  : null,
-                            ),
-                          ),
-                        );
-                      },
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        color: Colors.grey[200],
-                        child: const Center(
-                          child: Icon(Icons.image_not_supported, size: 40, color: Colors.grey),
-                        ),
-                      ),
-                    ),
+                    child: _buildProductImage(context, defaultImageUrl),
                   ),
                   Positioned(
                     top: 4,
@@ -92,7 +128,7 @@ class ProductCard extends StatelessWidget {
                         child: Padding(
                           padding: const EdgeInsets.all(6),
                           child: Icon(
-                            isFav ? Icons.favorite : Icons.favorite_border, 
+                            isFav ? Icons.favorite : Icons.favorite_border,
                             color: isFav ? Colors.red : Colors.grey[600],
                             size: 18,
                           ),
@@ -105,7 +141,8 @@ class ProductCard extends StatelessWidget {
                       top: 4,
                       right: 4,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 3),
                         decoration: BoxDecoration(
                           color: Colors.red[600],
                           borderRadius: BorderRadius.circular(8),
@@ -123,7 +160,7 @@ class ProductCard extends StatelessWidget {
                 ],
               ),
             ),
-            
+
             // قسم المعلومات
             Expanded(
               flex: 4,
@@ -136,18 +173,18 @@ class ProductCard extends StatelessWidget {
                     Expanded(
                       flex: 2,
                       child: Text(
-                        product.name, 
-                        maxLines: 2, 
+                        product.name,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontWeight: FontWeight.w600, 
+                          fontWeight: FontWeight.w600,
                           fontSize: 13,
                           height: 1.2,
                         ),
                       ),
                     ),
                     const SizedBox(height: 4),
-                    
+
                     // السعر
                     Wrap(
                       crossAxisAlignment: WrapCrossAlignment.center,
@@ -156,7 +193,7 @@ class ProductCard extends StatelessWidget {
                         Text(
                           '${product.price.toStringAsFixed(2)} د.ع',
                           style: TextStyle(
-                            fontWeight: FontWeight.bold, 
+                            fontWeight: FontWeight.bold,
                             color: Theme.of(context).colorScheme.primary,
                             fontSize: 13,
                           ),
@@ -165,7 +202,7 @@ class ProductCard extends StatelessWidget {
                           Text(
                             '${product.originalPrice!.toStringAsFixed(2)}',
                             style: TextStyle(
-                              decoration: TextDecoration.lineThrough, 
+                              decoration: TextDecoration.lineThrough,
                               color: Colors.grey[600],
                               fontSize: 10,
                             ),
@@ -173,7 +210,7 @@ class ProductCard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 6),
-                    
+
                     // زر الإضافة
                     SizedBox(
                       width: double.infinity,

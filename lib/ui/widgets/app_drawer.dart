@@ -51,7 +51,7 @@ class AppDrawer extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  'Engeb',
+                  'إيليت وان',
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 24,
@@ -60,10 +60,11 @@ class AppDrawer extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'متجرك الإلكتروني',
+                  'Elite One',
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.9),
                     fontSize: 14,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],

@@ -18,8 +18,8 @@ val localProperties = Properties().apply {
 
 // SDK Version Configuration with defaults
 val minSdkVersion: Int = localProperties.getProperty("android.minSdk")?.toInt() ?: 26
-val targetSdkVersion: Int = localProperties.getProperty("android.targetSdk")?.toInt() ?: 35
-val compileSdkVersionInt: Int = localProperties.getProperty("android.compileSdk")?.toInt() ?: 35
+val targetSdkVersion: Int = localProperties.getProperty("android.targetSdk")?.toInt() ?: 36
+val compileSdkVersionInt: Int = localProperties.getProperty("android.compileSdk")?.toInt() ?: 36
 
 // Validate SDK versions
 require(minSdkVersion >= 26) {
@@ -30,9 +30,10 @@ require(minSdkVersion <= targetSdkVersion) {
 }
 
 android {
-    namespace = "com.example.elite_one_mobile"
+    namespace = "com.elite.elite_one_mobile"
     compileSdk = compileSdkVersionInt
-    ndkVersion = "27.0.12077973"
+
+
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -44,7 +45,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.elite_one_mobile"
+        applicationId = "com.elite.elite_one_mobile"
 
         // SDK versions from local.properties
         minSdk = minSdkVersion

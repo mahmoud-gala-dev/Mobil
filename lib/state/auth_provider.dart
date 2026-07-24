@@ -10,11 +10,13 @@ class AuthProvider extends ChangeNotifier {
   String? _token;
   UserType? _userType;
   bool _isLoading = false;
+  bool _isDeletingAccount = false;
 
   UserModel? get user => _user;
   String? get token => _token;
   UserType? get userType => _userType;
   bool get isLoading => _isLoading;
+  bool get isDeletingAccount => _isDeletingAccount;
   bool get isAuthenticated => _token != null && _user != null;
   bool get isVendor => _userType == UserType.vendor;
   bool get isCustomer => _userType == UserType.customer;
@@ -27,19 +29,22 @@ class AuthProvider extends ChangeNotifier {
     try {
       // التأكد من تهيئة الخدمة
       await SharedPreferencesService.instance.init();
-      
+
       _token = SharedPreferencesService.instance.getString('auth_token');
-      final userTypeStr = SharedPreferencesService.instance.getString('user_type');
-    
-    if (userTypeStr != null) {
-      _userType = userTypeStr == 'vendor' ? UserType.vendor : UserType.customer;
-    }
+      final userTypeStr =
+          SharedPreferencesService.instance.getString('user_type');
+
+      if (userTypeStr != null) {
+        _userType =
+            userTypeStr == 'vendor' ? UserType.vendor : UserType.customer;
+      }
 
       if (_token != null) {
         try {
           await _loadUserProfile();
         } catch (e) {
-          if (kDebugMode) print('⚠️ [AuthProvider] خطأ في تحميل الملف الشخصي: $e');
+          if (kDebugMode)
+            print('⚠️ [AuthProvider] خطأ في تحميل الملف الشخصي: $e');
           await logout();
         }
       }
@@ -85,7 +90,7 @@ class AuthProvider extends ChangeNotifier {
       if (response['token'] == null) {
         throw Exception('لم يتم استلام التوكن من الخادم');
       }
-      
+
       if (response['user'] == null) {
         throw Exception('لم يتم استلام بيانات المستخدم من الخادم');
       }
@@ -95,7 +100,8 @@ class AuthProvider extends ChangeNotifier {
       _user = UserModel.fromApi(response['user'] as Map<String, dynamic>);
 
       await SharedPreferencesService.instance.setString('auth_token', _token!);
-      await SharedPreferencesService.instance.setString('user_type', 'customer');
+      await SharedPreferencesService.instance
+          .setString('user_type', 'customer');
 
       _isLoading = false;
       notifyListeners();
@@ -115,7 +121,7 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       print('📡 [AuthProvider] إرسال طلب تسجيل الدخول للبائع...');
-      
+
       final response = await ApiService.I.loginVendor(
         email: email,
         password: password,
@@ -128,7 +134,7 @@ class AuthProvider extends ChangeNotifier {
         print('❌ [AuthProvider] التوكن مفقود في الاستجابة');
         throw Exception('لم يتم استلام التوكن من الخادم');
       }
-      
+
       if (response['user'] == null) {
         print('❌ [AuthProvider] بيانات المستخدم مفقودة في الاستجابة');
         throw Exception('لم يتم استلام بيانات المستخدم من الخادم');
@@ -154,12 +160,12 @@ class AuthProvider extends ChangeNotifier {
 
       _isLoading = false;
       notifyListeners();
-      
+
       print('✅ [AuthProvider] اكتمل تسجيل الدخول بنجاح');
     } catch (e, stackTrace) {
       print('❌ [AuthProvider] خطأ في loginVendor: $e');
       print('Stack trace: $stackTrace');
-      
+
       _isLoading = false;
       notifyListeners();
       rethrow;
@@ -187,7 +193,7 @@ class AuthProvider extends ChangeNotifier {
       if (response['token'] == null) {
         throw Exception('لم يتم استلام التوكن من الخادم');
       }
-      
+
       if (response['user'] == null) {
         throw Exception('لم يتم استلام بيانات المستخدم من الخادم');
       }
@@ -197,7 +203,8 @@ class AuthProvider extends ChangeNotifier {
       _user = UserModel.fromApi(response['user'] as Map<String, dynamic>);
 
       await SharedPreferencesService.instance.setString('auth_token', _token!);
-      await SharedPreferencesService.instance.setString('user_type', 'customer');
+      await SharedPreferencesService.instance
+          .setString('user_type', 'customer');
 
       _isLoading = false;
       notifyListeners();
@@ -233,7 +240,7 @@ class AuthProvider extends ChangeNotifier {
       if (response['token'] == null) {
         throw Exception('لم يتم استلام التوكن من الخادم');
       }
-      
+
       if (response['user'] == null) {
         throw Exception('لم يتم استلام بيانات المستخدم من الخادم');
       }
@@ -287,7 +294,7 @@ class AuthProvider extends ChangeNotifier {
 
       // إعادة تحميل الملف الشخصي بعد التحديث
       await _loadUserProfile();
-      
+
       if (kDebugMode) {
         print('✅ [AuthProvider] تم تحديث الملف الشخصي بنجاح');
         print('   الاسم: ${_user?.name}');
@@ -297,6 +304,36 @@ class AuthProvider extends ChangeNotifier {
     } catch (e) {
       if (kDebugMode) print('❌ [AuthProvider] خطأ في تحديث الملف الشخصي: $e');
       rethrow;
+    }
+  }
+
+  Future<void> deleteAccount({required String password}) async {
+    _isDeletingAccount = true;
+    notifyListeners();
+
+    try {
+      if (_userType == UserType.vendor) {
+        await ApiService.I.deleteVendorAccount(password: password);
+      } else {
+        await ApiService.I.deleteAccount(password: password);
+      }
+
+      _user = null;
+      _token = null;
+      _userType = null;
+
+      await SharedPreferencesService.instance.remove('auth_token');
+      await SharedPreferencesService.instance.remove('user_type');
+
+      if (kDebugMode) {
+        print('✅ [AuthProvider] تم حذف الحساب ومسح بيانات الجلسة محلياً');
+      }
+    } catch (e) {
+      if (kDebugMode) print('❌ [AuthProvider] فشل حذف الحساب: $e');
+      rethrow;
+    } finally {
+      _isDeletingAccount = false;
+      notifyListeners();
     }
   }
 }

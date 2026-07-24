@@ -20,7 +20,8 @@ class CustomerDashboard extends StatelessWidget {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.person_off_outlined, size: 100, color: Colors.grey[400]),
+              Icon(Icons.person_off_outlined,
+                  size: 100, color: Colors.grey[400]),
               const SizedBox(height: 24),
               const Text(
                 'يجب تسجيل الدخول أولاً',
@@ -162,6 +163,14 @@ class CustomerDashboard extends StatelessWidget {
               onTap: () => _showLogoutDialog(context),
               textColor: Colors.red,
             ),
+            _buildMenuItem(
+              context,
+              icon: Icons.delete_forever_outlined,
+              title: 'حذف الحساب',
+              subtitle: 'حذف حسابك وبياناتك نهائياً',
+              onTap: () => _showDeleteAccountDialog(context),
+              textColor: Colors.red.shade700,
+            ),
           ],
         ),
       ),
@@ -179,7 +188,8 @@ class CustomerDashboard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
-        leading: Icon(icon, color: textColor ?? Theme.of(context).colorScheme.primary),
+        leading: Icon(icon,
+            color: textColor ?? Theme.of(context).colorScheme.primary),
         title: Text(
           title,
           style: TextStyle(
@@ -216,11 +226,106 @@ class CustomerDashboard extends StatelessWidget {
                 );
               }
             },
-            child: const Text('تسجيل الخروج', style: TextStyle(color: Colors.red)),
+            child:
+                const Text('تسجيل الخروج', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
   }
-}
 
+  void _showDeleteAccountDialog(BuildContext context) {
+    final passwordController = TextEditingController();
+    final authProvider = context.read<AuthProvider>();
+    var isDeleting = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('حذف الحساب نهائياً'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'سيتم حذف الحساب والبيانات المرتبطة به نهائياً. أدخل كلمة المرور للتأكيد.',
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: passwordController,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'كلمة المرور',
+                      prefixIcon: Icon(Icons.lock_outline),
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  if (isDeleting) ...[
+                    const SizedBox(height: 16),
+                    const LinearProgressIndicator(),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isDeleting ? null : () => Navigator.pop(ctx),
+                  child: const Text('إلغاء'),
+                ),
+                FilledButton.icon(
+                  onPressed: isDeleting
+                      ? null
+                      : () async {
+                          final password = passwordController.text.trim();
+                          if (password.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('يرجى إدخال كلمة المرور'),
+                                backgroundColor: Colors.orange,
+                              ),
+                            );
+                            return;
+                          }
+
+                          setDialogState(() => isDeleting = true);
+
+                          try {
+                            await authProvider.deleteAccount(
+                                password: password);
+
+                            if (context.mounted) {
+                              Navigator.pop(ctx);
+                              context.go('/auth/customer/login');
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('تم حذف الحساب بنجاح'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            setDialogState(() => isDeleting = false);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('فشل حذف الحساب: $e'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                  icon: const Icon(Icons.delete_forever_outlined),
+                  label: const Text('حذف الحساب'),
+                  style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    ).whenComplete(passwordController.dispose);
+  }
+}

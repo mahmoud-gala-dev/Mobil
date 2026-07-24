@@ -26,16 +26,16 @@ class _VendorDashboardState extends State<VendorDashboard> {
 
   Future<void> _loadData() async {
     if (!mounted) return;
-    
+
     setState(() => _isLoading = true);
     try {
       print('📊 [VendorDashboard] جلب بيانات الداشبورد...');
       final response = await ApiService.I.vendorDashboardStats();
       print('✅ [VendorDashboard] تم جلب الإحصائيات: $response');
-      
+
       // استخراج البيانات من response بشكل آمن
       final stats = response['data'] as Map<String, dynamic>? ?? response;
-      
+
       // جلب الطلبات بشكل آمن
       List<Map<String, dynamic>> orders = [];
       try {
@@ -47,9 +47,9 @@ class _VendorDashboardState extends State<VendorDashboard> {
         // نستمر مع قائمة فارغة بدلاً من إيقاف كل شيء
         orders = [];
       }
-      
+
       if (!mounted) return;
-      
+
       setState(() {
         _stats = stats;
         _recentOrders = orders;
@@ -58,34 +58,36 @@ class _VendorDashboardState extends State<VendorDashboard> {
     } catch (e, stackTrace) {
       print('❌ [VendorDashboard] خطأ في تحميل البيانات: $e');
       print('Stack trace: $stackTrace');
-      
+
       if (!mounted) return;
-      
+
       setState(() {
         _isLoading = false;
         // تعيين قيم افتراضية لتجنب أخطاء null
         _stats = null;
         _recentOrders = [];
       });
-      
+
       if (mounted) {
         // معالجة أنواع مختلفة من الأخطاء
         String errorMessage = 'خطأ في تحميل البيانات';
         bool shouldRedirect = false;
-        
-        if (e.toString().contains('401') || 
+
+        if (e.toString().contains('401') ||
             e.toString().contains('Unauthenticated') ||
             e.toString().contains('Invalid authentication token')) {
           errorMessage = 'انتهت صلاحية جلستك. يرجى تسجيل الدخول مرة أخرى';
           shouldRedirect = true;
-        } else if (e.toString().contains('403') || e.toString().contains('not active')) {
+        } else if (e.toString().contains('403') ||
+            e.toString().contains('not active')) {
           errorMessage = 'حسابك غير مفعل أو في انتظار الموافقة';
-        } else if (e.toString().contains('404') || e.toString().contains('not found')) {
+        } else if (e.toString().contains('404') ||
+            e.toString().contains('not found')) {
           errorMessage = 'لم يتم العثور على بيانات المتجر';
         } else {
           errorMessage = 'خطأ: ${e.toString()}';
         }
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
@@ -97,16 +99,18 @@ class _VendorDashboardState extends State<VendorDashboard> {
             ),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 4),
-            action: shouldRedirect ? SnackBarAction(
-              label: 'تسجيل الدخول',
-              textColor: Colors.white,
-              onPressed: () {
-                context.go('/auth/vendor/login');
-              },
-            ) : null,
+            action: shouldRedirect
+                ? SnackBarAction(
+                    label: 'تسجيل الدخول',
+                    textColor: Colors.white,
+                    onPressed: () {
+                      context.go('/auth/vendor/login');
+                    },
+                  )
+                : null,
           ),
         );
-        
+
         // إعادة التوجيه التلقائي للصفحة تسجيل الدخول
         if (shouldRedirect) {
           Future.delayed(const Duration(seconds: 2), () {
@@ -155,6 +159,11 @@ class _VendorDashboardState extends State<VendorDashboard> {
         title: 'لوحة التحكم',
         leadingIcon: Icons.dashboard_rounded,
         additionalActions: [
+          IconButton(
+            onPressed: () => _showDeleteAccountDialog(context),
+            icon: const Icon(Icons.delete_forever_outlined),
+            tooltip: 'حذف الحساب',
+          ),
           IconButton(
             onPressed: () => _showLogoutDialog(context),
             icon: const Icon(Icons.logout),
@@ -241,36 +250,37 @@ class _VendorDashboardState extends State<VendorDashboard> {
                             title: 'إجمالي الطلبات',
                             value: '${_stats!['total_orders'] ?? 0}',
                             color: Colors.blue,
-                            subtitle: _stats!['pending_orders'] != null 
-                              ? '${_stats!['pending_orders']} قيد الانتظار'
-                              : null,
+                            subtitle: _stats!['pending_orders'] != null
+                                ? '${_stats!['pending_orders']} قيد الانتظار'
+                                : null,
                           ),
                           _buildStatCard(
                             icon: Icons.attach_money,
                             title: 'إجمالي المبيعات',
-                            value: '${(_stats!['total_sales'] ?? 0).toStringAsFixed(0)} د.ع',
+                            value:
+                                '${(_stats!['total_sales'] ?? 0).toStringAsFixed(0)} د.ع',
                             color: Colors.purple,
-                            subtitle: _stats!['today_sales'] != null 
-                              ? 'اليوم: ${(_stats!['today_sales']).toStringAsFixed(0)} د.ع'
-                              : null,
+                            subtitle: _stats!['today_sales'] != null
+                                ? 'اليوم: ${(_stats!['today_sales']).toStringAsFixed(0)} د.ع'
+                                : null,
                           ),
                           _buildStatCard(
                             icon: Icons.inventory_2_outlined,
                             title: 'المنتجات',
                             value: '${_stats!['total_products'] ?? 0}',
                             color: Colors.green,
-                            subtitle: _stats!['active_products'] != null 
-                              ? '${_stats!['active_products']} نشط'
-                              : null,
+                            subtitle: _stats!['active_products'] != null
+                                ? '${_stats!['active_products']} نشط'
+                                : null,
                           ),
                           _buildStatCard(
                             icon: Icons.people_outlined,
                             title: 'العملاء',
                             value: '${_stats!['total_customers'] ?? 0}',
                             color: Colors.teal,
-                            subtitle: _stats!['avg_order_value'] != null 
-                              ? 'متوسط: ${(_stats!['avg_order_value']).toStringAsFixed(0)} د.ع'
-                              : null,
+                            subtitle: _stats!['avg_order_value'] != null
+                                ? 'متوسط: ${(_stats!['avg_order_value']).toStringAsFixed(0)} د.ع'
+                                : null,
                           ),
                         ],
                       ),
@@ -362,7 +372,8 @@ class _VendorDashboardState extends State<VendorDashboard> {
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
                         itemCount: _recentOrders.length,
-                        itemBuilder: (_, i) => _buildOrderCard(_recentOrders[i]),
+                        itemBuilder: (_, i) =>
+                            _buildOrderCard(_recentOrders[i]),
                       ),
                   ],
                 ),
@@ -545,11 +556,106 @@ class _VendorDashboardState extends State<VendorDashboard> {
                 );
               }
             },
-            child: const Text('تسجيل الخروج', style: TextStyle(color: Colors.red)),
+            child:
+                const Text('تسجيل الخروج', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
     );
   }
-}
 
+  void _showDeleteAccountDialog(BuildContext context) {
+    final passwordController = TextEditingController();
+    final authProvider = context.read<AuthProvider>();
+    var isDeleting = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('حذف الحساب نهائياً'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'سيتم حذف حساب البائع والبيانات المرتبطة به نهائياً. أدخل كلمة المرور للتأكيد.',
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: passwordController,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'كلمة المرور',
+                      prefixIcon: Icon(Icons.lock_outline),
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  if (isDeleting) ...[
+                    const SizedBox(height: 16),
+                    const LinearProgressIndicator(),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isDeleting ? null : () => Navigator.pop(ctx),
+                  child: const Text('إلغاء'),
+                ),
+                FilledButton.icon(
+                  onPressed: isDeleting
+                      ? null
+                      : () async {
+                          final password = passwordController.text.trim();
+                          if (password.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('يرجى إدخال كلمة المرور'),
+                                backgroundColor: Colors.orange,
+                              ),
+                            );
+                            return;
+                          }
+
+                          setDialogState(() => isDeleting = true);
+
+                          try {
+                            await authProvider.deleteAccount(
+                                password: password);
+
+                            if (context.mounted) {
+                              Navigator.pop(ctx);
+                              context.go('/auth/vendor/login');
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('تم حذف الحساب بنجاح'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            setDialogState(() => isDeleting = false);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('فشل حذف الحساب: $e'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                  icon: const Icon(Icons.delete_forever_outlined),
+                  label: const Text('حذف الحساب'),
+                  style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    ).whenComplete(passwordController.dispose);
+  }
+}

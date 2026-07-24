@@ -20,16 +20,16 @@ class ApiService {
       validateStatus: (s) => s != null && s >= 200 && s < 300,
       followRedirects: false,
     ));
-    
+
     // إضافة Auth Interceptor لإضافة Bearer Token تلقائياً
     _dio.interceptors.add(AuthInterceptor());
-    
+
     // إضافة Cookie Manager
     _dio.interceptors.add(CookieManager(CookieJar()));
-    
+
     // إضافة Retry Interceptor لإعادة المحاولة التلقائية
     _dio.interceptors.add(RetryInterceptor(dio: _dio));
-    
+
     // إضافة Logger في وضع التطوير
     if (ApiConfig.enableLogging) {
       _dio.interceptors.add(LogInterceptor(
@@ -41,7 +41,7 @@ class ApiService {
         logPrint: (obj) => print('🌐 API: $obj'),
       ));
     }
-    
+
     // طباعة معلومات التكوين عند البدء
     ApiConfig.printConfig();
   }
@@ -61,7 +61,8 @@ class ApiService {
     return data.map((e) => ProductModel.fromApi(e)).toList();
   }
 
-  Future<List<ProductModel>> searchProducts(String q, {Map<String, dynamic>? filters}) async {
+  Future<List<ProductModel>> searchProducts(String q,
+      {Map<String, dynamic>? filters}) async {
     final res = await _dio.get('/search/products', queryParameters: {
       'q': q,
       if (filters != null) ...filters,
@@ -82,7 +83,8 @@ class ApiService {
   }
 
   Future<List<String>> autocomplete(String q) async {
-    final res = await _dio.get('/search/autocomplete', queryParameters: {'q': q});
+    final res =
+        await _dio.get('/search/autocomplete', queryParameters: {'q': q});
     final List data = res.data['suggestions'] as List;
     return data.cast<String>();
   }
@@ -91,7 +93,7 @@ class ApiService {
   Future<List<CategoryModel>> categories() async {
     try {
       final res = await _dio.get('/categories');
-      
+
       List data;
       if (res.data is List) {
         data = res.data as List;
@@ -103,8 +105,10 @@ class ApiService {
         print('⚠️ Categories response structure غير متوقع: ${res.data}');
         return [];
       }
-      
-      return data.map((e) => CategoryModel.fromApi(e as Map<String, dynamic>)).toList();
+
+      return data
+          .map((e) => CategoryModel.fromApi(e as Map<String, dynamic>))
+          .toList();
     } catch (e) {
       print('❌ خطأ في categories: $e');
       return [];
@@ -114,7 +118,7 @@ class ApiService {
   Future<List<CategoryModel>> mainCategories() async {
     try {
       final res = await _dio.get('/categories/main');
-      
+
       List data;
       if (res.data is List) {
         data = res.data as List;
@@ -126,8 +130,10 @@ class ApiService {
         print('⚠️ Main categories response structure غير متوقع: ${res.data}');
         return [];
       }
-      
-      return data.map((e) => CategoryModel.fromApi(e as Map<String, dynamic>)).toList();
+
+      return data
+          .map((e) => CategoryModel.fromApi(e as Map<String, dynamic>))
+          .toList();
     } catch (e) {
       print('❌ خطأ في mainCategories: $e');
       return [];
@@ -137,7 +143,7 @@ class ApiService {
   Future<List<CategoryModel>> supermarketCategories() async {
     try {
       final res = await _dio.get('/categories/supermarket');
-      
+
       List data;
       if (res.data is List) {
         data = res.data as List;
@@ -146,11 +152,14 @@ class ApiService {
       } else if (res.data is Map && res.data['categories'] is List) {
         data = res.data['categories'] as List;
       } else {
-        print('⚠️ Supermarket categories response structure غير متوقع: ${res.data}');
+        print(
+            '⚠️ Supermarket categories response structure غير متوقع: ${res.data}');
         return [];
       }
-      
-      return data.map((e) => CategoryModel.fromApi(e as Map<String, dynamic>)).toList();
+
+      return data
+          .map((e) => CategoryModel.fromApi(e as Map<String, dynamic>))
+          .toList();
     } catch (e) {
       print('❌ خطأ في supermarketCategories: $e');
       return [];
@@ -165,11 +174,11 @@ class ApiService {
   Future<List<Map<String, dynamic>>> categorySubcategories(String slug) async {
     try {
       final res = await _dio.get('/categories/$slug/subcategories');
-      
+
       if (res.data == null) {
         return [];
       }
-      
+
       List? data;
       if (res.data is List) {
         data = res.data as List;
@@ -178,10 +187,11 @@ class ApiService {
       } else if (res.data is Map && res.data['subcategories'] is List) {
         data = res.data['subcategories'] as List;
       } else {
-        print('⚠️ Category subcategories response structure غير متوقع: ${res.data}');
+        print(
+            '⚠️ Category subcategories response structure غير متوقع: ${res.data}');
         return [];
       }
-      
+
       return data.where((e) => e != null).cast<Map<String, dynamic>>().toList();
     } catch (e) {
       print('❌ خطأ في categorySubcategories: $e');
@@ -195,12 +205,12 @@ class ApiService {
       print('🌐 [API] طلب منتجات القسم');
       print('🌐 [API] Endpoint: /categories/$slug/products');
       print('🌐 [API] Base URL: $kApiBase');
-      
+
       final res = await _dio.get('/categories/$slug/products');
-      
+
       print('📡 [API] Status Code: ${res.statusCode}');
       print('📡 [API] Response Type: ${res.data.runtimeType}');
-      
+
       // معالجة structures مختلفة من الـ API
       List? data;
       if (res.data == null) {
@@ -213,39 +223,45 @@ class ApiService {
         print('📦 [API] Response هو Map، البحث عن المنتجات...');
         final responseMap = res.data as Map<String, dynamic>;
         print('📦 [API] Keys في Response: ${responseMap.keys.join(", ")}');
-        
+
         if (responseMap['success'] == false) {
-          print('❌ [API] الطلب فشل: ${responseMap['message'] ?? "unknown error"}');
-          throw Exception(responseMap['message'] ?? 'فشل جلب المنتجات من الخادم');
+          print(
+              '❌ [API] الطلب فشل: ${responseMap['message'] ?? "unknown error"}');
+          throw Exception(
+              responseMap['message'] ?? 'فشل جلب المنتجات من الخادم');
         }
-        
+
         // محاولة إيجاد المنتجات في structures مختلفة
         if (responseMap['data'] is List) {
           print('✅ [API] وجدنا المنتجات في response["data"]');
           data = responseMap['data'] as List;
-        } else if (responseMap['products'] is Map && responseMap['products']['data'] is List) {
-          print('✅ [API] وجدنا المنتجات في response["products"]["data"] (paginated)');
+        } else if (responseMap['products'] is Map &&
+            responseMap['products']['data'] is List) {
+          print(
+              '✅ [API] وجدنا المنتجات في response["products"]["data"] (paginated)');
           data = responseMap['products']['data'] as List;
         } else if (responseMap['products'] is List) {
           print('✅ [API] وجدنا المنتجات في response["products"]');
           data = responseMap['products'] as List;
         } else {
           print('⚠️ [API] Category products response structure غير متوقع');
-          print('📦 [API] Response Data: ${responseMap.toString().substring(0, 200)}...');
+          print(
+              '📦 [API] Response Data: ${responseMap.toString().substring(0, 200)}...');
           return [];
         }
       } else {
-        print('⚠️ [API] Category products response type غير معروف: ${res.data.runtimeType}');
+        print(
+            '⚠️ [API] Category products response type غير معروف: ${res.data.runtimeType}');
         return [];
       }
-      
+
       print('📊 [API] عدد المنتجات المستلمة: ${data.length}');
-      
+
       if (data.isEmpty) {
         print('ℹ️ [API] لا توجد منتجات في هذا القسم');
         return [];
       }
-      
+
       print('🔄 [API] تحويل البيانات إلى ProductModel...');
       final products = data
           .where((e) => e != null)
@@ -260,10 +276,10 @@ class ApiService {
           .where((e) => e != null)
           .cast<ProductModel>()
           .toList();
-      
+
       print('✅ [API] تم تحويل ${products.length} منتج بنجاح');
       print('🌐 [API] ═══════════════════════════════════');
-      
+
       return products;
     } catch (e, stackTrace) {
       print('❌ [API] ═══════════════════════════════════');
@@ -299,7 +315,8 @@ class ApiService {
     return res.data as Map<String, dynamic>;
   }
 
-  Future<List<Map<String, dynamic>>> governorateCities(int governorateId) async {
+  Future<List<Map<String, dynamic>>> governorateCities(
+      int governorateId) async {
     final res = await _dio.get('/governorates/$governorateId/cities');
     final List data = res.data['data'] as List;
     return data.cast<Map<String, dynamic>>();
@@ -368,7 +385,8 @@ class ApiService {
   }
 
   // ============ VENDORS ============
-  Future<List<Map<String, dynamic>>> vendors({Map<String, dynamic>? filters}) async {
+  Future<List<Map<String, dynamic>>> vendors(
+      {Map<String, dynamic>? filters}) async {
     final res = await _dio.get('/vendors', queryParameters: filters);
     final List data = res.data['data'] as List;
     return data.cast<Map<String, dynamic>>();
@@ -384,23 +402,24 @@ class ApiService {
     try {
       print('🏪 [API] جلب تفاصيل المتجر #$id');
       final res = await _dio.get('/vendors/$id');
-      
+
       // معالجة آمنة للاستجابة
       if (res.data is Map) {
         final responseMap = res.data as Map<String, dynamic>;
-        
+
         // إذا كانت البيانات في data
         if (responseMap['data'] != null && responseMap['data'] is Map) {
           print('✅ [API] تم جلب تفاصيل المتجر من response["data"]');
           return responseMap['data'] as Map<String, dynamic>;
         }
-        
+
         // إذا كانت البيانات مباشرة
         print('✅ [API] تم جلب تفاصيل المتجر مباشرة');
         return responseMap;
       }
-      
-      print('⚠️ [API] vendor details response type غير متوقع: ${res.data.runtimeType}');
+
+      print(
+          '⚠️ [API] vendor details response type غير متوقع: ${res.data.runtimeType}');
       return {};
     } catch (e) {
       print('❌ [API] خطأ في vendorDetails($id): $e');
@@ -413,18 +432,18 @@ class ApiService {
       print('🏪 [API] ═══════════════════════════════════');
       print('🏪 [API] جلب منتجات المتجر #$vendorId');
       print('🏪 [API] Endpoint: /vendors/$vendorId/products');
-      
+
       final res = await _dio.get('/vendors/$vendorId/products');
-      
+
       print('📡 [API] Status Code: ${res.statusCode}');
       print('📡 [API] Response Type: ${res.data.runtimeType}');
-      
+
       // معالجة آمنة للاستجابة
       if (res.data == null) {
         print('⚠️ [API] استجابة null من vendorProducts للمتجر $vendorId');
         return [];
       }
-      
+
       List<dynamic> data;
       if (res.data is List) {
         print('📦 [API] Response هو List مباشر');
@@ -433,12 +452,13 @@ class ApiService {
         print('📦 [API] Response هو Map، البحث عن المنتجات...');
         final responseMap = res.data as Map<String, dynamic>;
         print('📦 [API] Keys في Response: ${responseMap.keys.join(", ")}');
-        
+
         if (responseMap['success'] == false) {
-          print('❌ [API] الطلب فشل: ${responseMap['message'] ?? "unknown error"}');
+          print(
+              '❌ [API] الطلب فشل: ${responseMap['message'] ?? "unknown error"}');
           return [];
         }
-        
+
         if (responseMap['data'] is List) {
           print('✅ [API] وجدنا المنتجات في response["data"]');
           data = responseMap['data'] as List<dynamic>;
@@ -447,22 +467,24 @@ class ApiService {
           data = responseMap['products'] as List<dynamic>;
         } else {
           print('⚠️ [API] Vendor products response structure غير متوقع');
-          print('📦 [API] Response Data: ${responseMap.toString().substring(0, 200)}...');
+          print(
+              '📦 [API] Response Data: ${responseMap.toString().substring(0, 200)}...');
           return [];
         }
       } else {
-        print('⚠️ [API] Vendor products response type غير معروف: ${res.data.runtimeType}');
+        print(
+            '⚠️ [API] Vendor products response type غير معروف: ${res.data.runtimeType}');
         return [];
       }
-      
+
       print('📊 [API] عدد المنتجات المستلمة: ${data.length}');
-      
+
       if (data.isEmpty) {
         print('ℹ️ [API] لا توجد منتجات للمتجر $vendorId');
         print('🏪 [API] ═══════════════════════════════════');
         return [];
       }
-      
+
       print('🔄 [API] تحويل البيانات إلى ProductModel...');
       final products = data
           .where((e) => e != null)
@@ -477,10 +499,10 @@ class ApiService {
           .where((e) => e != null)
           .cast<ProductModel>()
           .toList();
-      
+
       print('✅ [API] تم تحويل ${products.length} منتج بنجاح');
       print('🏪 [API] ═══════════════════════════════════');
-      
+
       return products;
     } catch (e, stackTrace) {
       print('❌ [API] ═══════════════════════════════════');
@@ -496,7 +518,7 @@ class ApiService {
   Future<List<ProductModel>> featured() async {
     try {
       final res = await _dio.get('/products/featured');
-      
+
       // معالجة structures مختلفة من الـ API
       List data;
       if (res.data is List) {
@@ -509,8 +531,10 @@ class ApiService {
         print('⚠️ Featured response structure غير متوقع: ${res.data}');
         return [];
       }
-      
-      return data.map((e) => ProductModel.fromApi(e as Map<String, dynamic>)).toList();
+
+      return data
+          .map((e) => ProductModel.fromApi(e as Map<String, dynamic>))
+          .toList();
     } catch (e) {
       print('❌ خطأ في featured: $e');
       return [];
@@ -520,7 +544,7 @@ class ApiService {
   Future<List<ProductModel>> freshProducts() async {
     try {
       final res = await _dio.get('/products/fresh');
-      
+
       List data;
       if (res.data is List) {
         data = res.data as List;
@@ -532,8 +556,10 @@ class ApiService {
         print('⚠️ Fresh products response structure غير متوقع: ${res.data}');
         return [];
       }
-      
-      return data.map((e) => ProductModel.fromApi(e as Map<String, dynamic>)).toList();
+
+      return data
+          .map((e) => ProductModel.fromApi(e as Map<String, dynamic>))
+          .toList();
     } catch (e) {
       print('❌ خطأ في freshProducts: $e');
       return [];
@@ -543,7 +569,7 @@ class ApiService {
   Future<List<ProductModel>> offerProducts() async {
     try {
       final res = await _dio.get('/products/offers');
-      
+
       List data;
       if (res.data is List) {
         data = res.data as List;
@@ -555,8 +581,10 @@ class ApiService {
         print('⚠️ Offer products response structure غير متوقع: ${res.data}');
         return [];
       }
-      
-      return data.map((e) => ProductModel.fromApi(e as Map<String, dynamic>)).toList();
+
+      return data
+          .map((e) => ProductModel.fromApi(e as Map<String, dynamic>))
+          .toList();
     } catch (e) {
       print('❌ خطأ في offerProducts: $e');
       return [];
@@ -571,13 +599,17 @@ class ApiService {
   }
 
   // ============ REVIEWS ============
-  Future<Map<String, dynamic>> getProductReviews(int productId, {int page = 1}) async {
-    final res = await _dio.get('/products/$productId/reviews', queryParameters: {'page': page});
+  Future<Map<String, dynamic>> getProductReviews(int productId,
+      {int page = 1}) async {
+    final res = await _dio
+        .get('/products/$productId/reviews', queryParameters: {'page': page});
     return res.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> getVendorReviews(int vendorId, {int page = 1}) async {
-    final res = await _dio.get('/vendors/$vendorId/reviews', queryParameters: {'page': page});
+  Future<Map<String, dynamic>> getVendorReviews(int vendorId,
+      {int page = 1}) async {
+    final res = await _dio
+        .get('/vendors/$vendorId/reviews', queryParameters: {'page': page});
     return res.data as Map<String, dynamic>;
   }
 
@@ -612,7 +644,8 @@ class ApiService {
     });
   }
 
-  Future<void> updateProductReview(int reviewId, {int? rating, String? comment}) async {
+  Future<void> updateProductReview(int reviewId,
+      {int? rating, String? comment}) async {
     await _dio.put('/reviews/products/$reviewId', data: {
       if (rating != null) 'rating': rating,
       if (comment != null) 'comment': comment,
@@ -624,11 +657,13 @@ class ApiService {
   }
 
   Future<void> rateProductReview(int reviewId, bool isHelpful) async {
-    await _dio.post('/reviews/products/$reviewId/rate', data: {'is_helpful': isHelpful});
+    await _dio.post('/reviews/products/$reviewId/rate',
+        data: {'is_helpful': isHelpful});
   }
 
   Future<void> rateVendorReview(int reviewId, bool isHelpful) async {
-    await _dio.post('/reviews/vendors/$reviewId/rate', data: {'is_helpful': isHelpful});
+    await _dio.post('/reviews/vendors/$reviewId/rate',
+        data: {'is_helpful': isHelpful});
   }
 
   Future<void> removeReviewRating(int reviewId) async {
@@ -636,20 +671,23 @@ class ApiService {
   }
 
   // ============ OFFERS ============
-  Future<List<Map<String, dynamic>>> offers({Map<String, dynamic>? filters}) async {
+  Future<List<Map<String, dynamic>>> offers(
+      {Map<String, dynamic>? filters}) async {
     try {
       final res = await _dio.get('/offers', queryParameters: filters);
       final responseData = res.data as Map<String, dynamic>;
-      
+
       // معالجة response structure بشكل آمن
       if (responseData['data'] != null) {
         if (responseData['data'] is List) {
           return (responseData['data'] as List).cast<Map<String, dynamic>>();
-        } else if (responseData['data'] is Map && responseData['data']['data'] is List) {
-          return (responseData['data']['data'] as List).cast<Map<String, dynamic>>();
+        } else if (responseData['data'] is Map &&
+            responseData['data']['data'] is List) {
+          return (responseData['data']['data'] as List)
+              .cast<Map<String, dynamic>>();
         }
       }
-      
+
       print('⚠️ Offers response structure غير متوقع: $responseData');
       return [];
     } catch (e) {
@@ -662,16 +700,18 @@ class ApiService {
     try {
       final res = await _dio.get('/offers/featured');
       final responseData = res.data as Map<String, dynamic>;
-      
+
       // معالجة response structure بشكل آمن
       if (responseData['data'] != null) {
         if (responseData['data'] is List) {
           return (responseData['data'] as List).cast<Map<String, dynamic>>();
-        } else if (responseData['data'] is Map && responseData['data']['data'] is List) {
-          return (responseData['data']['data'] as List).cast<Map<String, dynamic>>();
+        } else if (responseData['data'] is Map &&
+            responseData['data']['data'] is List) {
+          return (responseData['data']['data'] as List)
+              .cast<Map<String, dynamic>>();
         }
       }
-      
+
       print('⚠️ Featured offers response structure غير متوقع: $responseData');
       return [];
     } catch (e) {
@@ -684,15 +724,17 @@ class ApiService {
     try {
       final res = await _dio.get('/offers/flash-sale');
       final responseData = res.data as Map<String, dynamic>;
-      
+
       if (responseData['data'] != null) {
         if (responseData['data'] is List) {
           return (responseData['data'] as List).cast<Map<String, dynamic>>();
-        } else if (responseData['data'] is Map && responseData['data']['data'] is List) {
-          return (responseData['data']['data'] as List).cast<Map<String, dynamic>>();
+        } else if (responseData['data'] is Map &&
+            responseData['data']['data'] is List) {
+          return (responseData['data']['data'] as List)
+              .cast<Map<String, dynamic>>();
         }
       }
-      
+
       return [];
     } catch (e) {
       print('❌ خطأ في flashSaleOffers: $e');
@@ -704,15 +746,17 @@ class ApiService {
     try {
       final res = await _dio.get('/offers/search', queryParameters: {'q': q});
       final responseData = res.data as Map<String, dynamic>;
-      
+
       if (responseData['data'] != null) {
         if (responseData['data'] is List) {
           return (responseData['data'] as List).cast<Map<String, dynamic>>();
-        } else if (responseData['data'] is Map && responseData['data']['data'] is List) {
-          return (responseData['data']['data'] as List).cast<Map<String, dynamic>>();
+        } else if (responseData['data'] is Map &&
+            responseData['data']['data'] is List) {
+          return (responseData['data']['data'] as List)
+              .cast<Map<String, dynamic>>();
         }
       }
-      
+
       return [];
     } catch (e) {
       print('❌ خطأ في searchOffers: $e');
@@ -723,11 +767,11 @@ class ApiService {
   Future<Map<String, dynamic>> offerDetails(int id) async {
     final res = await _dio.get('/offers/$id');
     final responseData = res.data as Map<String, dynamic>;
-    
+
     if (responseData['data'] != null) {
       return responseData['data'] as Map<String, dynamic>;
     }
-    
+
     return responseData;
   }
 
@@ -735,15 +779,17 @@ class ApiService {
     try {
       final res = await _dio.get('/offers/category/$categoryId');
       final responseData = res.data as Map<String, dynamic>;
-      
+
       if (responseData['data'] != null) {
         if (responseData['data'] is List) {
           return (responseData['data'] as List).cast<Map<String, dynamic>>();
-        } else if (responseData['data'] is Map && responseData['data']['data'] is List) {
-          return (responseData['data']['data'] as List).cast<Map<String, dynamic>>();
+        } else if (responseData['data'] is Map &&
+            responseData['data']['data'] is List) {
+          return (responseData['data']['data'] as List)
+              .cast<Map<String, dynamic>>();
         }
       }
-      
+
       return [];
     } catch (e) {
       print('❌ خطأ في offersByCategory: $e');
@@ -756,15 +802,17 @@ class ApiService {
     try {
       final res = await _dio.get('/offer-categories');
       final responseData = res.data as Map<String, dynamic>;
-      
+
       if (responseData['data'] != null) {
         if (responseData['data'] is List) {
           return (responseData['data'] as List).cast<Map<String, dynamic>>();
-        } else if (responseData['data'] is Map && responseData['data']['data'] is List) {
-          return (responseData['data']['data'] as List).cast<Map<String, dynamic>>();
+        } else if (responseData['data'] is Map &&
+            responseData['data']['data'] is List) {
+          return (responseData['data']['data'] as List)
+              .cast<Map<String, dynamic>>();
         }
       }
-      
+
       print('⚠️ Offer categories response structure غير متوقع: $responseData');
       return [];
     } catch (e) {
@@ -776,11 +824,11 @@ class ApiService {
   Future<Map<String, dynamic>> offerCategoryDetails(int id) async {
     final res = await _dio.get('/offer-categories/$id');
     final responseData = res.data as Map<String, dynamic>;
-    
+
     if (responseData['data'] != null) {
       return responseData['data'] as Map<String, dynamic>;
     }
-    
+
     return responseData;
   }
 
@@ -788,15 +836,17 @@ class ApiService {
     try {
       final res = await _dio.get('/offer-categories/$categoryId/offers');
       final responseData = res.data as Map<String, dynamic>;
-      
+
       if (responseData['data'] != null) {
         if (responseData['data'] is List) {
           return (responseData['data'] as List).cast<Map<String, dynamic>>();
-        } else if (responseData['data'] is Map && responseData['data']['data'] is List) {
-          return (responseData['data']['data'] as List).cast<Map<String, dynamic>>();
+        } else if (responseData['data'] is Map &&
+            responseData['data']['data'] is List) {
+          return (responseData['data']['data'] as List)
+              .cast<Map<String, dynamic>>();
         }
       }
-      
+
       return [];
     } catch (e) {
       print('❌ خطأ في offerCategoryOffers: $e');
@@ -840,7 +890,7 @@ class ApiService {
       rethrow;
     }
   }
-  
+
   /// إضافة عرض للسلة باستخدام offer_id
   Future<void> addOfferToCart(int offerId, {int quantity = 1}) async {
     try {
@@ -947,7 +997,8 @@ class ApiService {
   }
 
   /// الاستعلام عن حالة معاملة الدفع
-  Future<Map<String, dynamic>> getMyFatoorahPaymentStatus(int transactionId) async {
+  Future<Map<String, dynamic>> getMyFatoorahPaymentStatus(
+      int transactionId) async {
     final res = await _dio.get('/payments/myfatoorah/status', queryParameters: {
       'transaction_id': transactionId,
     });
@@ -973,7 +1024,8 @@ class ApiService {
   Future<bool> isMyFatoorahEnabled() async {
     try {
       final methods = await getAvailablePaymentMethods();
-      return methods.any((m) => m['code'] == 'myfatoorah' && m['is_active'] == true);
+      return methods
+          .any((m) => m['code'] == 'myfatoorah' && m['is_active'] == true);
     } catch (e) {
       return false;
     }
@@ -1025,20 +1077,23 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> login(String email, String password) async {
-    final res = await _dio.post('/auth/login', data: {'email': email, 'password': password});
-    
+    final res = await _dio
+        .post('/auth/login', data: {'email': email, 'password': password});
+
     // معالجة response structure من API
     final responseData = res.data as Map<String, dynamic>;
-    
+
     // التحقق من وجود data أو token مباشرة
     if (responseData['data'] != null) {
       return responseData['data'] as Map<String, dynamic>;
     }
-    
+
     return responseData;
   }
 
-  Future<Map<String, dynamic>> register(String name, String email, String password, {String? phone}) async {
+  Future<Map<String, dynamic>> register(
+      String name, String email, String password,
+      {String? phone}) async {
     final res = await _dio.post('/auth/register', data: {
       'name': name,
       'email': email,
@@ -1047,16 +1102,17 @@ class ApiService {
     });
     return res.data as Map<String, dynamic>;
   }
-  
+
   Future<Map<String, dynamic>> getUserProfile() async {
     final res = await _dio.get('/auth/me');
     return res.data as Map<String, dynamic>;
   }
-  
-  Future<Map<String, dynamic>> loginCustomer({required String email, required String password}) async {
+
+  Future<Map<String, dynamic>> loginCustomer(
+      {required String email, required String password}) async {
     return await login(email, password);
   }
-  
+
   Future<Map<String, dynamic>> registerCustomer({
     required String name,
     required String email,
@@ -1065,11 +1121,12 @@ class ApiService {
   }) async {
     return await register(name, email, password, phone: phone);
   }
-  
-  Future<Map<String, dynamic>> loginVendor({required String email, required String password}) async {
+
+  Future<Map<String, dynamic>> loginVendor(
+      {required String email, required String password}) async {
     return await vendorLogin(email, password);
   }
-  
+
   Future<Map<String, dynamic>> registerVendor({
     required String name,
     required String email,
@@ -1090,16 +1147,31 @@ class ApiService {
       businessCategoryId: 1, // قيمة افتراضية
       description: description,
     );
-    
+
     // بعد التسجيل، نقوم بتسجيل الدخول
     return await vendorLogin(email, password);
   }
-  
+
   Future<void> logout() async {
     await _dio.post('/auth/logout');
   }
 
-  Future<void> updateProfile({String? name, String? email, String? phone, String? birthDate}) async {
+  Future<void> deleteAccount({required String password}) async {
+    await _dio.delete('/auth/account', data: {
+      'password': password,
+      'confirmation': true,
+    });
+  }
+
+  Future<void> deleteVendorAccount({required String password}) async {
+    await _dio.delete('/vendor/auth/account', data: {
+      'password': password,
+      'confirmation': true,
+    });
+  }
+
+  Future<void> updateProfile(
+      {String? name, String? email, String? phone, String? birthDate}) async {
     await _dio.put('/auth/profile', data: {
       if (name != null) 'name': name,
       if (email != null) 'email': email,
@@ -1108,7 +1180,8 @@ class ApiService {
     });
   }
 
-  Future<void> changePassword({required String currentPassword, required String newPassword}) async {
+  Future<void> changePassword(
+      {required String currentPassword, required String newPassword}) async {
     await _dio.post('/auth/change-password', data: {
       'current_password': currentPassword,
       'new_password': newPassword,
@@ -1140,15 +1213,16 @@ class ApiService {
     });
   }
 
-  Future<Map<String, dynamic>> vendorLogin(String email, String password) async {
+  Future<Map<String, dynamic>> vendorLogin(
+      String email, String password) async {
     final res = await _dio.post('/vendor/auth/login', data: {
       'email': email,
       'password': password,
     });
-    
+
     // معالجة response structure من API
     final responseData = res.data as Map<String, dynamic>;
-    
+
     // التحقق من وجود data
     if (responseData['data'] != null) {
       final data = responseData['data'] as Map<String, dynamic>;
@@ -1158,7 +1232,7 @@ class ApiService {
         'user': data['vendor'],
       };
     }
-    
+
     // إذا كان الرد بالشكل القديم، نرجعه كما هو
     return responseData;
   }
@@ -1177,7 +1251,8 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> vendorValidateToken(String token) async {
-    final res = await _dio.post('/vendor/auth/validate-token', data: {'token': token});
+    final res =
+        await _dio.post('/vendor/auth/validate-token', data: {'token': token});
     return res.data as Map<String, dynamic>;
   }
 
@@ -1217,7 +1292,8 @@ class ApiService {
   }
 
   // ============ VENDOR PRODUCTS ============
-  Future<List<Map<String, dynamic>>> vendorGetProducts({Map<String, dynamic>? params}) async {
+  Future<List<Map<String, dynamic>>> vendorGetProducts(
+      {Map<String, dynamic>? params}) async {
     final res = await _dio.get('/vendor/products', queryParameters: params);
     final List data = res.data['data'] as List;
     return data.cast<Map<String, dynamic>>();
@@ -1230,12 +1306,12 @@ class ApiService {
     // إذا كانت هناك صورة، نستخدم FormData
     if (imageFile != null) {
       final formData = FormData();
-      
+
       // إضافة بيانات المنتج
       data.forEach((key, value) {
         formData.fields.add(MapEntry(key, value.toString()));
       });
-      
+
       // إضافة الصورة
       formData.files.add(MapEntry(
         'image',
@@ -1244,11 +1320,11 @@ class ApiService {
           filename: imageFile.path.split('/').last,
         ),
       ));
-      
+
       final res = await _dio.post('/vendor/products', data: formData);
       return res.data as Map<String, dynamic>;
     }
-    
+
     // إذا لم تكن هناك صورة، نستخدم JSON عادي
     final res = await _dio.post('/vendor/products', data: data);
     return res.data as Map<String, dynamic>;
@@ -1259,7 +1335,8 @@ class ApiService {
     return res.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> vendorUpdateProduct(int productId, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> vendorUpdateProduct(
+      int productId, Map<String, dynamic> data) async {
     final res = await _dio.put('/vendor/products/$productId', data: data);
     return res.data as Map<String, dynamic>;
   }
@@ -1269,10 +1346,12 @@ class ApiService {
   }
 
   // ============ VENDOR ORDERS ============
-  Future<List<Map<String, dynamic>>> vendorGetOrders({Map<String, dynamic>? params}) async {
+  Future<List<Map<String, dynamic>>> vendorGetOrders(
+      {Map<String, dynamic>? params}) async {
     final res = await _dio.get('/vendor/orders', queryParameters: params);
     // VendorOrderController returns 'orders' not 'data'
-    final List data = res.data['orders'] as List? ?? res.data['data'] as List? ?? [];
+    final List data =
+        res.data['orders'] as List? ?? res.data['data'] as List? ?? [];
     return data.cast<Map<String, dynamic>>();
   }
 
@@ -1281,18 +1360,22 @@ class ApiService {
     return res.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> vendorUpdateOrderStatus(int orderId, String status) async {
-    final res = await _dio.put('/vendor/orders/$orderId/status', data: {'status': status});
+  Future<Map<String, dynamic>> vendorUpdateOrderStatus(
+      int orderId, String status) async {
+    final res = await _dio
+        .put('/vendor/orders/$orderId/status', data: {'status': status});
     return res.data as Map<String, dynamic>;
   }
 
   // ============ VENDOR REPORTS ============
-  Future<Map<String, dynamic>> vendorReports({Map<String, dynamic>? params}) async {
+  Future<Map<String, dynamic>> vendorReports(
+      {Map<String, dynamic>? params}) async {
     final res = await _dio.get('/vendor/reports', queryParameters: params);
     return res.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> vendorSalesReport({String? startDate, String? endDate}) async {
+  Future<Map<String, dynamic>> vendorSalesReport(
+      {String? startDate, String? endDate}) async {
     final res = await _dio.get('/vendor/reports/sales', queryParameters: {
       if (startDate != null) 'start_date': startDate,
       if (endDate != null) 'end_date': endDate,
@@ -1305,7 +1388,8 @@ class ApiService {
     return res.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> vendorRevenueReport({String? startDate, String? endDate}) async {
+  Future<Map<String, dynamic>> vendorRevenueReport(
+      {String? startDate, String? endDate}) async {
     final res = await _dio.get('/vendor/reports/revenue', queryParameters: {
       if (startDate != null) 'start_date': startDate,
       if (endDate != null) 'end_date': endDate,
@@ -1319,7 +1403,8 @@ class ApiService {
     return res.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> vendorUpdateSettings(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> vendorUpdateSettings(
+      Map<String, dynamic> data) async {
     final res = await _dio.put('/vendor/settings', data: data);
     return res.data as Map<String, dynamic>;
   }
@@ -1336,7 +1421,8 @@ class ApiService {
     return res.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> updateAddress(int addressId, Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> updateAddress(
+      int addressId, Map<String, dynamic> data) async {
     final res = await _dio.put('/addresses/$addressId', data: data);
     return res.data as Map<String, dynamic>;
   }
@@ -1355,7 +1441,8 @@ class ApiService {
     return res.data as Map<String, dynamic>;
   }
 
-  Future<Map<String, dynamic>> updateNotificationSettings(Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> updateNotificationSettings(
+      Map<String, dynamic> data) async {
     final res = await _dio.put('/notification-settings', data: data);
     return res.data as Map<String, dynamic>;
   }
@@ -1381,54 +1468,54 @@ class ApiService {
       if (phone != null) 'phone': phone,
     });
   }
-  
+
   // ============ STATIC PAGES ============
   Future<List<Map<String, dynamic>>> getStaticPages() async {
     try {
       final res = await _dio.get('/static-pages');
       final responseData = res.data as Map<String, dynamic>;
-      
+
       if (responseData['data'] != null) {
         return (responseData['data'] as List).cast<Map<String, dynamic>>();
       }
-      
+
       return [];
     } catch (e) {
       print('❌ خطأ في getStaticPages: $e');
       return [];
     }
   }
-  
+
   Future<Map<String, dynamic>> getStaticPage(String slug) async {
     final res = await _dio.get('/static-pages/$slug');
     final responseData = res.data as Map<String, dynamic>;
-    
+
     if (responseData['data'] != null) {
       return responseData['data'] as Map<String, dynamic>;
     }
-    
+
     return responseData;
   }
-  
+
   Future<Map<String, dynamic>> getTermsPage() async {
     final res = await _dio.get('/terms');
     final responseData = res.data as Map<String, dynamic>;
-    
+
     if (responseData['data'] != null) {
       return responseData['data'] as Map<String, dynamic>;
     }
-    
+
     return responseData;
   }
-  
+
   Future<Map<String, dynamic>> getPrivacyPage() async {
     final res = await _dio.get('/privacy');
     final responseData = res.data as Map<String, dynamic>;
-    
+
     if (responseData['data'] != null) {
       return responseData['data'] as Map<String, dynamic>;
     }
-    
+
     return responseData;
   }
 
@@ -1486,7 +1573,8 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> checkNewsletterSubscription(String email) async {
-    final res = await _dio.get('/newsletter/check', queryParameters: {'email': email});
+    final res =
+        await _dio.get('/newsletter/check', queryParameters: {'email': email});
     return res.data as Map<String, dynamic>;
   }
 
@@ -1599,7 +1687,7 @@ class ApiService {
     try {
       print('📡 جلب السلايدرات من: ${ApiConfig.baseUrl}/sliders');
       final res = await _dio.get('/sliders');
-      
+
       // معالجة structures مختلفة من الـ API
       List data;
       if (res.data is List) {
@@ -1612,21 +1700,21 @@ class ApiService {
         print('⚠️ Sliders response structure غير متوقع: ${res.data}');
         return [];
       }
-      
+
       print('✅ تم استلام ${data.length} سلايدرات من API');
-      
+
       // تحويل إلى SliderModel
       final sliders = data
           .map((slider) => SliderModel.fromApi(slider as Map<String, dynamic>))
           .where((slider) => slider.isActive)
           .toList();
-      
+
       print('📊 السلايدرات النشطة: ${sliders.length}');
       if (sliders.isNotEmpty) {
         print('🖼️  أول سلايدر: ${sliders[0].title}');
         print('📸 صورة أول سلايدر: ${sliders[0].image}');
       }
-      
+
       return sliders;
     } catch (e, stackTrace) {
       print('❌ خطأ في getSliders: $e');
@@ -1639,7 +1727,6 @@ class ApiService {
     final res = await _dio.get('/sliders/$sliderId');
     return res.data as Map<String, dynamic>;
   }
-
 
   // ============ DEMO ============
   Future<Map<String, dynamic>> demoSeed() async {

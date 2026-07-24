@@ -1,4 +1,4 @@
-package com.example.elite_one_mobile
+package com.elite.elite_one_mobile
 
 import io.flutter.embedding.android.FlutterActivity
 

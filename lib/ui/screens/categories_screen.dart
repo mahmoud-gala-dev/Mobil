@@ -290,9 +290,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                           flex: 3,
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                            decoration: BoxDecoration(
+                            decoration: const BoxDecoration(
                               color: Colors.white,
-                              borderRadius: const BorderRadius.vertical(
+                              borderRadius: BorderRadius.vertical(
                                 bottom: Radius.circular(20),
                               ),
                             ),

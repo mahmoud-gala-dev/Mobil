@@ -19,7 +19,7 @@ class AppFooter extends StatelessWidget {
           colors: isDark 
             ? [
                 colorScheme.surface,
-                colorScheme.surfaceVariant,
+                colorScheme.surfaceContainerHighest,
               ]
             : [
                 colorScheme.primary.withOpacity(0.05),
@@ -119,7 +119,7 @@ class AppFooter extends StatelessWidget {
                 color: colorScheme.primary,
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: Icon(
+              child: const Icon(
                 Icons.store_rounded,
                 color: Colors.white,
                 size: 28,
@@ -333,7 +333,7 @@ class AppFooter extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.3),
+        color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: Theme.of(context).colorScheme.outline.withOpacity(0.1),

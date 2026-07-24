@@ -867,15 +867,15 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
     
     return Scaffold(
       appBar: AppBar(
-        title: Row(
+        title: const Row(
           children: [
             Icon(
               Icons.account_circle_rounded,
               color: Colors.white,
               size: 28,
             ),
-            const SizedBox(width: 12),
-            const Text(
+            SizedBox(width: 12),
+            Text(
               'حسابي',
               style: TextStyle(
                 color: Colors.white,

@@ -231,7 +231,7 @@ class _VendorOrdersScreenState extends State<VendorOrdersScreen> {
                 icon: Icons.shopping_cart_outlined,
                 children: [
                   if (order['items'] != null)
-                    ...(order['items'] as List).map((item) => _buildOrderItem(item)).toList(),
+                    ...(order['items'] as List).map((item) => _buildOrderItem(item)),
                 ],
               ),
               const SizedBox(height: 20),

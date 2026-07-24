@@ -40,7 +40,7 @@ class SharedPreferencesService {
     for (int attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         if (kDebugMode) {
-          print('🔄 [SharedPreferencesService] محاولة التهيئة ${attempt}/$maxRetries');
+          print('🔄 [SharedPreferencesService] محاولة التهيئة $attempt/$maxRetries');
         }
 
         // محاولة الوصول لـ SharedPreferences

@@ -162,7 +162,7 @@ class AppDrawer extends StatelessWidget {
                 
                 // Theme toggle
                 const Divider(height: 1),
-                _ThemeToggleItem(),
+                const _ThemeToggleItem(),
                 
                 // Show auth-specific items based on login status
                 Builder(

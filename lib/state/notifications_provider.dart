@@ -31,7 +31,7 @@ class NotificationModel {
 
 class NotificationsProvider with ChangeNotifier {
   List<NotificationModel> _notifications = [];
-  bool _isLoading = false;
+  final bool _isLoading = false;
   String? _error;
 
   List<NotificationModel> get notifications => _notifications;

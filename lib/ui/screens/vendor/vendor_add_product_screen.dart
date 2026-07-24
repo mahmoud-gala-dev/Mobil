@@ -257,7 +257,7 @@ class _VendorAddProductScreenState extends State<VendorAddProductScreen> {
                             label: 'السعر',
                             hint: '0.00',
                             icon: Icons.attach_money,
-                            keyboardType: TextInputType.numberWithOptions(decimal: true),
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
                             validator: (val) {
                               if (val?.isEmpty == true) return 'السعر مطلوب';
                               if (double.tryParse(val!) == null) return 'سعر غير صحيح';
@@ -272,7 +272,7 @@ class _VendorAddProductScreenState extends State<VendorAddProductScreen> {
                             label: 'السعر الأصلي',
                             hint: '0.00 (اختياري)',
                             icon: Icons.money_off_outlined,
-                            keyboardType: TextInputType.numberWithOptions(decimal: true),
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           ),
                         ),
                       ],

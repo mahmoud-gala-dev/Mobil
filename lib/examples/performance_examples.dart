@@ -240,7 +240,7 @@ class _PerformanceExamplesScreenState extends State<PerformanceExamplesScreen>
   }
 
   Widget _buildImageExample() {
-    final imageUrl = 'https://via.placeholder.com/300x200';
+    const imageUrl = 'https://via.placeholder.com/300x200';
     
     return Column(
       children: [

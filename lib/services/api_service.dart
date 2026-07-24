@@ -14,8 +14,8 @@ class ApiService {
   ApiService._() {
     _dio = Dio(BaseOptions(
       baseUrl: kApiBase,
-      connectTimeout: Duration(seconds: ApiConfig.connectionTimeout),
-      receiveTimeout: Duration(seconds: ApiConfig.receiveTimeout),
+      connectTimeout: const Duration(seconds: ApiConfig.connectionTimeout),
+      receiveTimeout: const Duration(seconds: ApiConfig.receiveTimeout),
       headers: ApiConfig.defaultHeaders,
       validateStatus: (s) => s != null && s >= 200 && s < 300,
       followRedirects: false,

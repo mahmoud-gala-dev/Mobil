@@ -593,7 +593,7 @@ class _CartItemCard extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text(
-                              '${(item.product.price * item.qty).toStringAsFixed(2)}',
+                              (item.product.price * item.qty).toStringAsFixed(2),
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 18,

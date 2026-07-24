@@ -42,8 +42,8 @@ void main() {
     });
 
     test('Should calculate discounted price correctly', () {
-      final double originalPrice = 100.0;
-      final int discountPercentage = 20;
+      const double originalPrice = 100.0;
+      const int discountPercentage = 20;
       final double expectedPrice = originalPrice * (1 - discountPercentage / 100);
 
       expect(expectedPrice, 80.0);
@@ -67,8 +67,8 @@ void main() {
     });
 
     test('Should apply coupon discount correctly', () {
-      final double subtotal = 100.0;
-      final double discountPercentage = 10.0;
+      const double subtotal = 100.0;
+      const double discountPercentage = 10.0;
       final double expectedTotal = subtotal * (1 - discountPercentage / 100);
 
       expect(expectedTotal, 90.0);
@@ -116,8 +116,8 @@ void main() {
 
   group('Validation Tests', () {
     test('Should validate email format', () {
-      final validEmail = 'test@example.com';
-      final invalidEmail = 'invalid-email';
+      const validEmail = 'test@example.com';
+      const invalidEmail = 'invalid-email';
 
       final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
 
@@ -126,16 +126,16 @@ void main() {
     });
 
     test('Should validate phone number', () {
-      final validPhone = '01234567890';
-      final invalidPhone = '123';
+      const validPhone = '01234567890';
+      const invalidPhone = '123';
 
       expect(validPhone.length >= 10, true);
       expect(invalidPhone.length >= 10, false);
     });
 
     test('Should validate password strength', () {
-      final strongPassword = 'Abcd1234@';
-      final weakPassword = '123';
+      const strongPassword = 'Abcd1234@';
+      const weakPassword = '123';
 
       expect(strongPassword.length >= 8, true);
       expect(weakPassword.length >= 8, false);
@@ -150,8 +150,8 @@ void main() {
         {'name': 'Product 3', 'price': 75.0},
       ];
 
-      final minPrice = 60.0;
-      final maxPrice = 100.0;
+      const minPrice = 60.0;
+      const maxPrice = 100.0;
 
       final filtered = products.where((p) {
         final price = p['price'] as double;
@@ -169,7 +169,7 @@ void main() {
         {'name': 'Apple Watch', 'category': 'Accessories'},
       ];
 
-      final query = 'apple';
+      const query = 'apple';
       final results = products.where((p) {
         final name = (p['name'] as String).toLowerCase();
         return name.contains(query.toLowerCase());

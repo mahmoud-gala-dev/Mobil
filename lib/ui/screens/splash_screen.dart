@@ -133,16 +133,16 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              const Color(0xFF16A34A), // أخضر داكن
-              const Color(0xFF22C55E), // أخضر متوسط
-              const Color(0xFF4ADE80), // أخضر فاتح
+              Color(0xFF16A34A), // أخضر داكن
+              Color(0xFF22C55E), // أخضر متوسط
+              Color(0xFF4ADE80), // أخضر فاتح
             ],
-            stops: const [0.0, 0.5, 1.0],
+            stops: [0.0, 0.5, 1.0],
           ),
         ),
         child: SafeArea(

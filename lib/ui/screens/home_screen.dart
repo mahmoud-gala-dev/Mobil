@@ -193,7 +193,7 @@ class HomeScreen extends StatelessWidget {
                               context.push('/category/${c.id}');
                             },
                             borderRadius: BorderRadius.circular(12),
-                            child: Container(
+                            child: SizedBox(
                               width: 90,
                               child: Column(
                                 children: [

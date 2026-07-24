@@ -200,7 +200,7 @@ class ProductCard extends StatelessWidget {
                         ),
                         if (product.originalPrice != null)
                           Text(
-                            '${product.originalPrice!.toStringAsFixed(2)}',
+                            product.originalPrice!.toStringAsFixed(2),
                             style: TextStyle(
                               decoration: TextDecoration.lineThrough,
                               color: Colors.grey[600],
@@ -223,10 +223,10 @@ class ProductCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(8),
                           ),
                         ),
-                        child: Row(
+                        child: const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           mainAxisSize: MainAxisSize.min,
-                          children: const [
+                          children: [
                             Icon(Icons.add_shopping_cart, size: 14),
                             SizedBox(width: 4),
                             Text('إضافة', style: TextStyle(fontSize: 11)),

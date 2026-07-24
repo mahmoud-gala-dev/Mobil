@@ -1,6 +1,7 @@
 /// تكوين API - Engeb Mobile App
 /// 
 /// هذا الملف يحتوي على جميع إعدادات الاتصال بالـ API
+library;
 
 class ApiConfig {
   // ============ عناوين API ============
